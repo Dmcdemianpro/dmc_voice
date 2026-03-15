@@ -32,7 +32,7 @@ echo -e "${NC}"
 # ── Variables ─────────────────────────────────────────────────────────────────
 DOMAIN="risvoice.dmcprojects.cl"
 APP_USER="risvoice"
-APP_DIR="/home/${APP_USER}/app"
+APP_DIR="/home/${APP_USER}"
 BACKEND_DIR="${APP_DIR}/backend"
 FRONTEND_DIR="${APP_DIR}/frontend"
 BACKEND_PORT=8020
@@ -40,7 +40,12 @@ FRONTEND_PORT=3020
 REPO="https://github.com/Dmcdemianpro/dmc_voice.git"
 
 read -sp "Contraseña para PostgreSQL (BD risvoice): " DB_PASSWORD; echo
-read -sp "Contraseña para el usuario ${APP_USER} del sistema: " APP_PASSWORD; echo
+if id "$APP_USER" &>/dev/null; then
+    warn "Usuario ${APP_USER} ya existe — no se solicitará contraseña"
+    APP_PASSWORD=""
+else
+    read -sp "Contraseña para el usuario ${APP_USER} del sistema: " APP_PASSWORD; echo
+fi
 read -sp "JWT Secret (mín. 32 chars, Enter para generar): " JWT_SECRET; echo
 [[ -z "$JWT_SECRET" ]] && JWT_SECRET=$(openssl rand -hex 32)
 
