@@ -12,7 +12,7 @@ import type { User, WorklistItem } from "@/types/report.types";
 import { toast } from "sonner";
 import {
   PenLine, Send, FileDown, Loader2, ChevronRight,
-  FileText, Trash2, Save, Mic, RotateCcw, UserCheck, CheckCircle, AlertTriangle, User, Link2,
+  FileText, Trash2, Save, Mic, RotateCcw, UserCheck, CheckCircle, AlertTriangle, User as UserIcon, Link2,
 } from "lucide-react";
 
 const mono = "var(--font-ibm-plex-mono), monospace";
@@ -278,7 +278,7 @@ export default function ReportDetailPage() {
               borderRadius: 4, color: C.sub, letterSpacing: "0.06em",
               display: "flex", alignItems: "center", gap: 4,
             }}>
-              <User size={9} />
+              <UserIcon size={9} />
               {currentReport.patient_name}
               {currentReport.patient_rut && (
                 <span style={{ color: C.muted, marginLeft: 2 }}>· {currentReport.patient_rut}</span>
@@ -823,7 +823,7 @@ export default function ReportDetailPage() {
                   onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.background = C.elevated; }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <User size={11} style={{ color: C.cyan, flexShrink: 0 }} />
+                    <UserIcon size={11} style={{ color: C.cyan, flexShrink: 0 }} />
                     <span style={{ fontSize: 12, color: C.text, fontWeight: 600 }}>
                       {wl.patient_name ?? "Sin nombre"}
                     </span>

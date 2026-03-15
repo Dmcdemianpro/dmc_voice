@@ -11,7 +11,7 @@ import { useAuthStore } from "@/store/authStore";
 import { hasPermission, type Role } from "@/lib/permissions";
 import { formatDate } from "@/lib/utils";
 import {
-  Mic, Search, RefreshCw, Clock, User, Activity, Plus, X,
+  Mic, Search, RefreshCw, Clock, User as UserIcon, Activity, Plus, X,
   Stethoscope, FileText, CheckCircle, AlertCircle,
   ImageIcon, UserCheck, Loader2,
 } from "lucide-react";
@@ -176,7 +176,7 @@ const EMPTY_FORM = {
 type Tab = "paciente" | "examen" | "derivacion";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "paciente",   label: "Paciente",   icon: <User style={{ width: "12px", height: "12px" }} /> },
+  { id: "paciente",   label: "Paciente",   icon: <UserIcon style={{ width: "12px", height: "12px" }} /> },
   { id: "examen",     label: "Examen",     icon: <FileText style={{ width: "12px", height: "12px" }} /> },
   { id: "derivacion", label: "Derivación", icon: <Stethoscope style={{ width: "12px", height: "12px" }} /> },
 ];
@@ -580,7 +580,7 @@ export default function WorklistPage() {
                     background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.15)",
                     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                   }}>
-                    <User style={{ width: "12px", height: "12px", color: "#00d4ff" }} />
+                    <UserIcon style={{ width: "12px", height: "12px", color: "#00d4ff" }} />
                   </div>
                   <div>
                     <div style={{ fontSize: "12px", color: "#e8edf2", fontWeight: 500 }}>{item.patient_name || "—"}</div>
@@ -618,7 +618,7 @@ export default function WorklistPage() {
                       }
                     </button>
                   ) : item.has_images ? (
-                    <ImageIcon style={{ width: 10, height: 10, color: "#10b981" }} title="Con imágenes" />
+                    <ImageIcon style={{ width: 10, height: 10, color: "#10b981" }} />
                   ) : null}
                 </div>
                 <div style={{ padding: "13px 12px", fontSize: "11px", color: "#8a9ab8", fontFamily: "IBM Plex Mono, monospace" }}>
@@ -851,7 +851,7 @@ export default function WorklistPage() {
                                 background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.2)",
                                 display: "flex", alignItems: "center", justifyContent: "center",
                               }}>
-                                <User style={{ width: "13px", height: "13px", color: "#00d4ff" }} />
+                                <UserIcon style={{ width: "13px", height: "13px", color: "#00d4ff" }} />
                               </div>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: "12px", color: "#e8edf2", fontWeight: 500 }}>
