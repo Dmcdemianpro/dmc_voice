@@ -44,11 +44,40 @@ read -sp "Contraseña para el usuario ${APP_USER} del sistema: " APP_PASSWORD; e
 read -sp "JWT Secret (mín. 32 chars, Enter para generar): " JWT_SECRET; echo
 [[ -z "$JWT_SECRET" ]] && JWT_SECRET=$(openssl rand -hex 32)
 
-# SSL: con Cloudflare Proxied se usa el SSL de Cloudflare (no Certbot)
-warn "DNS con Cloudflare Proxy detectado — el SSL lo gestiona Cloudflare."
-warn "Asegúrate de tener SSL/TLS en modo 'Full' en el panel de Cloudflare."
-warn "(Cloudflare → SSL/TLS → Overview → Full)"
-SSL_EMAIL=""
+# ── Cloudflare Origin Certificate ─────────────────────────────────────────────
+echo ""
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${CYAN}  Configuración SSL — Cloudflare Full Strict${NC}"
+echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+echo -e "${YELLOW}Debes generar un Origin Certificate en Cloudflare:${NC}"
+echo "  1. Panel Cloudflare → dmcprojects.cl"
+echo "  2. SSL/TLS → Origin Server → Create Certificate"
+echo "  3. Seleccionar: *.dmcprojects.cl  y  dmcprojects.cl"
+echo "  4. Validez: 15 años"
+echo "  5. Formato: PEM"
+echo "  6. Copiar el certificado y la clave privada"
+echo ""
+
+# Rutas donde se guardarán los certificados
+CF_CERT_DIR="/etc/ssl/cloudflare"
+CF_CERT="${CF_CERT_DIR}/risvoice.dmcprojects.cl.pem"
+CF_KEY="${CF_CERT_DIR}/risvoice.dmcprojects.cl.key"
+
+mkdir -p "${CF_CERT_DIR}"
+chmod 700 "${CF_CERT_DIR}"
+
+echo -e "${YELLOW}Pega el CERTIFICADO (Origin Certificate) y presiona Enter + Ctrl+D:${NC}"
+cat > "${CF_CERT}"
+chmod 644 "${CF_CERT}"
+
+echo -e "${YELLOW}Pega la CLAVE PRIVADA (Private Key) y presiona Enter + Ctrl+D:${NC}"
+cat > "${CF_KEY}"
+chmod 600 "${CF_KEY}"
+
+[[ ! -s "${CF_CERT}" ]] && err "Certificado vacío — vuelve a ejecutar el script"
+[[ ! -s "${CF_KEY}"  ]] && err "Clave privada vacía — vuelve a ejecutar el script"
+log "Certificados Cloudflare guardados"
 
 # ── 1. Crear usuario del sistema ──────────────────────────────────────────────
 info "Creando usuario ${APP_USER}..."
@@ -246,68 +275,72 @@ pm2 startup systemd -u "$APP_USER" --hp "/home/${APP_USER}" 2>/dev/null | grep "
 log "Frontend corriendo en puerto ${FRONTEND_PORT}"
 
 # ── 10. Nginx ─────────────────────────────────────────────────────────────────
-info "Configurando Nginx para ${DOMAIN}..."
-cat > "/etc/nginx/sites-available/${DOMAIN}" <<'NGINX'
+info "Configurando Nginx para ${DOMAIN} (HTTPS con Origin Certificate)..."
+
+cat > "/etc/nginx/sites-available/${DOMAIN}" <<NGINX
+# Redirigir HTTP → HTTPS
 server {
     listen 80;
-    server_name DOMAIN_PLACEHOLDER;
+    server_name ${DOMAIN};
+    return 301 https://\$host\$request_uri;
+}
+
+# HTTPS con Cloudflare Origin Certificate
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+
+    ssl_certificate     ${CF_CERT};
+    ssl_certificate_key ${CF_KEY};
+
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
 
     # Frontend Next.js
     location / {
-        proxy_pass http://127.0.0.1:FRONTEND_PORT_PLACEHOLDER;
+        proxy_pass http://127.0.0.1:${FRONTEND_PORT};
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_cache_bypass \$http_upgrade;
         client_max_body_size 50M;
     }
 
     # Backend FastAPI
     location /api/ {
-        proxy_pass http://127.0.0.1:BACKEND_PORT_PLACEHOLDER;
+        proxy_pass http://127.0.0.1:${BACKEND_PORT};
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
         proxy_read_timeout 120s;
         client_max_body_size 50M;
     }
 
     # Documentación FastAPI
     location /docs {
-        proxy_pass http://127.0.0.1:BACKEND_PORT_PLACEHOLDER;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://127.0.0.1:${BACKEND_PORT};
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto https;
     }
 
     # Health check
     location /health {
-        proxy_pass http://127.0.0.1:BACKEND_PORT_PLACEHOLDER;
-        proxy_set_header Host $host;
+        proxy_pass http://127.0.0.1:${BACKEND_PORT};
+        proxy_set_header Host \$host;
     }
 }
 NGINX
 
-# Reemplazar placeholders
-sed -i "s/DOMAIN_PLACEHOLDER/${DOMAIN}/g" "/etc/nginx/sites-available/${DOMAIN}"
-sed -i "s/FRONTEND_PORT_PLACEHOLDER/${FRONTEND_PORT}/g" "/etc/nginx/sites-available/${DOMAIN}"
-sed -i "s/BACKEND_PORT_PLACEHOLDER/${BACKEND_PORT}/g" "/etc/nginx/sites-available/${DOMAIN}"
-
 ln -sf "/etc/nginx/sites-available/${DOMAIN}" "/etc/nginx/sites-enabled/${DOMAIN}"
 nginx -t && systemctl reload nginx
-log "Nginx configurado"
-
-# ── 11. SSL ───────────────────────────────────────────────────────────────────
-# El SSL es manejado por Cloudflare (Proxy activo).
-# El servidor solo necesita escuchar en HTTP — Cloudflare termina el TLS.
-# Configuración requerida en Cloudflare: SSL/TLS → Full
-info "SSL gestionado por Cloudflare — no se requiere Certbot."
-log "Nginx escucha en HTTP (Cloudflare hace el HTTPS externamente)"
+log "Nginx configurado con HTTPS (Cloudflare Full Strict)"
 
 # ── 12. Resumen final ─────────────────────────────────────────────────────────
 echo ""
@@ -327,11 +360,13 @@ echo "  Logs:     journalctl -u risvoice-backend -f"
 echo "            pm2 logs risvoice-frontend"
 echo ""
 echo -e "${YELLOW}PENDIENTE:${NC}"
-echo "  1. Editar .env y agregar tu ANTHROPIC_API_KEY:"
+echo "  1. Agregar ANTHROPIC_API_KEY en el .env:"
 echo "     nano ${BACKEND_DIR}/.env"
 echo "     systemctl restart risvoice-backend"
 echo ""
-echo "  2. Crear primer usuario admin:"
+echo "  2. Verificar en Cloudflare: SSL/TLS → Overview = Full Strict ✔"
+echo ""
+echo "  3. Crear primer usuario admin:"
 echo "     curl -X POST https://${DOMAIN}/api/v1/admin/users \\"
 echo "       -H 'Content-Type: application/json' \\"
 echo "       -d '{\"rut\":\"12345678-9\",\"email\":\"admin@dmcprojects.cl\","
