@@ -91,6 +91,13 @@ export interface Report {
   version: number;
   created_at: string;
   updated_at: string;
+  // Demografía del paciente (denormalizado desde WorklistItem)
+  patient_name: string | null;
+  patient_rut: string | null;
+  patient_dob: string | null;
+  patient_sex: "M" | "F" | "I" | null;
+  patient_phone: string | null;
+  patient_email: string | null;
 }
 
 export interface WorklistItem {
