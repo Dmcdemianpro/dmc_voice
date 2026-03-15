@@ -64,25 +64,31 @@ echo "  5. Formato: PEM"
 echo "  6. Copiar el certificado y la clave privada"
 echo ""
 
-# Rutas donde se guardarán los certificados
+# Rutas compartidas — wildcard *.dmcprojects.cl sirve para todos los proyectos
 CF_CERT_DIR="/etc/ssl/cloudflare"
-CF_CERT="${CF_CERT_DIR}/risvoice.dmcprojects.cl.pem"
-CF_KEY="${CF_CERT_DIR}/risvoice.dmcprojects.cl.key"
+CF_CERT="${CF_CERT_DIR}/dmcprojects.cl.pem"
+CF_KEY="${CF_CERT_DIR}/dmcprojects.cl.key"
 
 mkdir -p "${CF_CERT_DIR}"
 chmod 700 "${CF_CERT_DIR}"
 
-echo -e "${YELLOW}Pega el CERTIFICADO (Origin Certificate) y presiona Enter + Ctrl+D:${NC}"
-cat > "${CF_CERT}"
-chmod 644 "${CF_CERT}"
+# Si el certificado ya existe (instalado por otro proyecto) reutilizarlo
+if [[ -s "${CF_CERT}" && -s "${CF_KEY}" ]]; then
+    warn "Certificado wildcard ya existe en ${CF_CERT_DIR} — reutilizando"
+    log "Certificados Cloudflare OK (compartidos con otros proyectos)"
+else
+    echo -e "${YELLOW}Pega el CERTIFICADO (Origin Certificate) y presiona Enter + Ctrl+D:${NC}"
+    cat > "${CF_CERT}"
+    chmod 644 "${CF_CERT}"
 
-echo -e "${YELLOW}Pega la CLAVE PRIVADA (Private Key) y presiona Enter + Ctrl+D:${NC}"
-cat > "${CF_KEY}"
-chmod 600 "${CF_KEY}"
+    echo -e "${YELLOW}Pega la CLAVE PRIVADA (Private Key) y presiona Enter + Ctrl+D:${NC}"
+    cat > "${CF_KEY}"
+    chmod 600 "${CF_KEY}"
 
-[[ ! -s "${CF_CERT}" ]] && err "Certificado vacío — vuelve a ejecutar el script"
-[[ ! -s "${CF_KEY}"  ]] && err "Clave privada vacía — vuelve a ejecutar el script"
-log "Certificados Cloudflare guardados"
+    [[ ! -s "${CF_CERT}" ]] && err "Certificado vacío — vuelve a ejecutar el script"
+    [[ ! -s "${CF_KEY}"  ]] && err "Clave privada vacía — vuelve a ejecutar el script"
+    log "Certificados Cloudflare guardados en ${CF_CERT_DIR}"
+fi
 
 # ── 1. Crear usuario del sistema ──────────────────────────────────────────────
 info "Creando usuario ${APP_USER}..."
