@@ -41,9 +41,14 @@ REPO="https://github.com/Dmcdemianpro/dmc_voice.git"
 
 read -sp "Contraseña para PostgreSQL (BD risvoice): " DB_PASSWORD; echo
 read -sp "Contraseña para el usuario ${APP_USER} del sistema: " APP_PASSWORD; echo
-read -p  "Email para certificado SSL: " SSL_EMAIL
 read -sp "JWT Secret (mín. 32 chars, Enter para generar): " JWT_SECRET; echo
 [[ -z "$JWT_SECRET" ]] && JWT_SECRET=$(openssl rand -hex 32)
+
+# SSL: con Cloudflare Proxied se usa el SSL de Cloudflare (no Certbot)
+warn "DNS con Cloudflare Proxy detectado — el SSL lo gestiona Cloudflare."
+warn "Asegúrate de tener SSL/TLS en modo 'Full' en el panel de Cloudflare."
+warn "(Cloudflare → SSL/TLS → Overview → Full)"
+SSL_EMAIL=""
 
 # ── 1. Crear usuario del sistema ──────────────────────────────────────────────
 info "Creando usuario ${APP_USER}..."
@@ -297,11 +302,12 @@ ln -sf "/etc/nginx/sites-available/${DOMAIN}" "/etc/nginx/sites-enabled/${DOMAIN
 nginx -t && systemctl reload nginx
 log "Nginx configurado"
 
-# ── 11. SSL con Certbot ───────────────────────────────────────────────────────
-info "Obteniendo certificado SSL..."
-certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos -m "${SSL_EMAIL}" --redirect \
-    && log "SSL activado — HTTPS habilitado" \
-    || warn "SSL falló — verifica que el DNS de ${DOMAIN} apunte a este servidor"
+# ── 11. SSL ───────────────────────────────────────────────────────────────────
+# El SSL es manejado por Cloudflare (Proxy activo).
+# El servidor solo necesita escuchar en HTTP — Cloudflare termina el TLS.
+# Configuración requerida en Cloudflare: SSL/TLS → Full
+info "SSL gestionado por Cloudflare — no se requiere Certbot."
+log "Nginx escucha en HTTP (Cloudflare hace el HTTPS externamente)"
 
 # ── 12. Resumen final ─────────────────────────────────────────────────────────
 echo ""
