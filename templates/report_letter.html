@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Informe Radiológico — {{ report.modalidad or 'ESTUDIO' }}</title>
+  <link rel="stylesheet" href="report_style.css">
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-logo">
+      <div class="institution-name">{{ user.institution or 'DMC Projects SPA' }}</div>
+      <div class="institution-subtitle">Área Salud Digital · Sistema RIS Voice AI</div>
+    </div>
+    {% if qr_base64 %}
+    <div class="header-qr">
+      <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR Verificación">
+      <div style="font-size:6pt;color:#889;text-align:center;margin-top:2px;">Verificar</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- TÍTULO -->
+  <div class="report-title">
+    <h1>Informe {{ report.modalidad or '' }} — {{ report.region_anatomica or 'Estudio' }}</h1>
+    <div class="report-meta">
+      <span>Fecha: {{ fecha }}</span>
+      {% if report.accession_number %}<span>N° Acceso: {{ report.accession_number }}</span>{% endif %}
+      {% if report.study_id %}<span>ID Estudio: {{ report.study_id }}</span>{% endif %}
+      <span>Versión: {{ report.version }}</span>
+    </div>
+  </div>
+
+  <!-- ALERTA CRÍTICA -->
+  {% if report.has_alert and report.alert_desc %}
+  <div class="critical-alert">
+    <div class="alert-title">⚠ HALLAZGO CRÍTICO — NOTIFICAR INMEDIATAMENTE</div>
+    <div class="alert-body">{{ report.alert_desc }}</div>
+  </div>
+  {% endif %}
+
+  <!-- TÉCNICA -->
+  {% if claude_data.get('tecnica', {}).get('descripcion') %}
+  <div class="section">
+    <div class="section-title">Técnica</div>
+    <div class="section-body">{{ claude_data.tecnica.descripcion }}</div>
+  </div>
+  {% endif %}
+
+  <!-- HALLAZGOS -->
+  {% if claude_data.get('hallazgos') %}
+  <div class="section">
+    <div class="section-title">Hallazgos</div>
+    {% for h in claude_data.hallazgos %}
+    <div class="finding-item {% if h.es_critico %}critical-finding{% endif %}">
+      {% if h.region %}
+      <div class="finding-region">{{ h.region }}</div>
+      {% endif %}
+      <div class="section-body">
+        {{ h.descripcion }}
+        {% if h.severidad %}
+        <span class="severity-badge severity-{{ h.severidad }}">{{ h.severidad }}</span>
+        {% endif %}
+      </div>
+      {% if h.snomed_code %}
+      <div style="font-size:7.5pt;color:#889;font-family:monospace;margin-top:2px;">
+        SNOMED: {{ h.snomed_code }} — {{ h.snomed_display }}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% elif report.texto_final %}
+  <div class="section">
+    <div class="section-title">Hallazgos</div>
+    <div class="section-body">{{ report.texto_final }}</div>
+  </div>
+  {% endif %}
+
+  <!-- IMPRESIÓN DIAGNÓSTICA -->
+  {% if claude_data.get('impresion_diagnostica') %}
+  <div class="section">
+    <div class="section-title">Impresión Diagnóstica</div>
+    {% for dx in claude_data.impresion_diagnostica %}
+    <div class="dx-item">
+      <div class="dx-name">
+        {{ dx.diagnostico }}
+        {% if dx.certeza %}
+        <span class="certeza-badge certeza-{{ dx.certeza }}">{{ dx.certeza }}</span>
+        {% endif %}
+      </div>
+      {% if dx.cie10_code %}
+      <div class="dx-codes">
+        CIE-10: {{ dx.cie10_code }} · {{ dx.cie10_descripcion }}
+        {% if dx.snomed_code %} | SNOMED: {{ dx.snomed_code }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- RECOMENDACIONES -->
+  {% if claude_data.get('recomendaciones', {}).get('texto') %}
+  <div class="section">
+    <div class="section-title">Recomendaciones</div>
+    <ul class="rec-list">
+      {% for rec in claude_data.recomendaciones.texto %}
+      <li>{{ rec }}</li>
+      {% endfor %}
+    </ul>
+    {% if claude_data.recomendaciones.get('urgencia_seguimiento') %}
+    <div style="margin-top:8px;">
+      Urgencia de seguimiento:
+      <span class="urgencia-badge urgencia-{{ claude_data.recomendaciones.urgencia_seguimiento }}">
+        {{ claude_data.recomendaciones.urgencia_seguimiento.replace('_', ' ') }}
+      </span>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- FIRMA -->
+  <div class="signature-section">
+    <div class="signature-line"></div>
+    <div class="signature-name">{{ user.full_name }}</div>
+    <div class="signature-meta">{{ user.role.replace('_', ' ') }} · Radiología e Imagenología</div>
+    {% if user.institution %}
+    <div class="signature-meta">{{ user.institution }}</div>
+    {% endif %}
+    {% if report.signed_at %}
+    <div class="signature-meta" style="margin-top:4px;">Firmado electrónicamente: {{ fecha }}</div>
+    {% endif %}
+  </div>
+
+  <!-- AVISO CONFIDENCIALIDAD -->
+  <div class="confidential-notice">
+    DOCUMENTO CONFIDENCIAL — Información protegida por la Ley N° 19.628 (Protección de Datos Personales) y el Código de Ética Médica.
+    Su divulgación no autorizada está prohibida. Verificación disponible mediante código QR.
+  </div>
+
+</div>
+
+<!-- FOOTER EN TODAS LAS PÁGINAS -->
+<div class="page-footer">
+  <span>RIS Voice AI · DMC Projects SPA · Área Salud Digital</span>
+  <span>ID: {{ report.id }}</span>
+</div>
+
+</body>
+</html>
