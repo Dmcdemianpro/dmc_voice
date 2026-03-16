@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { Report } from "@/types/report.types";
+import { useMobileCtx } from "../layout";
 
 interface Stats {
   total_reports: number; total_alerts: number;
@@ -40,6 +41,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const user = useAuthStore((s) => s.user);
   const isAdmin = user?.role === "ADMIN" || user?.role === "JEFE_SERVICIO";
+  const { isMobile, isTablet, toggleMenu } = useMobileCtx();
 
   const load = () => {
     setLoading(true);
@@ -152,9 +154,9 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", fontFamily: mono, background: "#080b11" }}>
-      <Header title="Dashboard" subtitle={isAdmin ? "Resumen del sistema" : "Mi producción"} />
+      <Header title="Dashboard" subtitle={isAdmin ? "Resumen del sistema" : "Mi producción"} isMobile={isMobile} onMenuToggle={toggleMenu} />
 
-      <div style={{ flex: 1, padding: "24px", overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: isMobile ? "16px" : "24px", overflowY: "auto" }}>
 
         {/* Pending borradores CTA — radiologist only */}
         {!isAdmin && !loading && myStats && myStats.borrador > 0 && (
@@ -212,7 +214,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : isTablet ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: isMobile ? 10 : 14, marginBottom: 24 }}>
           {statCards.map(({ label, value, icon: Icon, color, glow, border, bg }) => (
             <div key={label} style={{
               background: "#0d1117",
@@ -285,7 +287,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Two column panels */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14 }}>
 
           {/* Critical alerts panel */}
           <div style={{
@@ -478,13 +480,16 @@ export default function DashboardPage() {
           paddingTop: 16,
           borderTop: "1px solid rgba(0,212,255,0.05)",
           display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: 4,
         }}>
           <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
             RIS Voice.AI · v1.0 · DMC Projects
           </span>
-          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
-            Ley 19.628 · Protección datos personales
-          </span>
+          {!isMobile && (
+            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
+              Ley 19.628 · Protección datos personales
+            </span>
+          )}
         </div>
       </div>
 

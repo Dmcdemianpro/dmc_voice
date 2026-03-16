@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/utils";
 import { FileText, AlertTriangle, ChevronLeft, ChevronRight, FilePlus, Plus, X, RefreshCw, Link2 } from "lucide-react";
 import { reportsCreateApi } from "@/lib/api";
 import { toast } from "sonner";
+import { useMobileCtx } from "../layout";
 
 const STATUSES = ["", "BORRADOR", "EN_REVISION", "FIRMADO", "ENVIADO"];
 
@@ -21,6 +22,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
 };
 
 export default function ReportsPage() {
+  const { isMobile, toggleMenu } = useMobileCtx();
   const [data, setData] = useState<{ items: Report[]; total: number; page: number; per_page: number } | null>(null);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
@@ -97,9 +99,9 @@ export default function ReportsPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <Header title="Informes" subtitle={data ? `${data.total} informes en total` : ""} />
+      <Header title="Informes" subtitle={data ? `${data.total} informes en total` : ""} isMobile={isMobile} onMenuToggle={toggleMenu} />
 
-      <div style={{ flex: 1, padding: "24px", overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: isMobile ? "12px" : "24px", overflowY: "auto" }}>
 
         {/* Top bar */}
         <div style={{ display: "flex", alignItems: "center", marginBottom: "16px", gap: "8px" }}>
@@ -200,71 +202,97 @@ export default function ReportsPage() {
                 <div style={{
                   background: isHov ? "#1a2030" : "#131720",
                   border: `1px solid ${isHov ? "#2a3550" : "#1e2535"}`,
-                  borderRadius: "8px", padding: "13px 16px",
-                  display: "flex", alignItems: "center", gap: "14px",
+                  borderRadius: "8px", padding: isMobile ? "10px 12px" : "13px 16px",
+                  display: "flex", alignItems: isMobile ? "flex-start" : "center",
+                  flexDirection: isMobile ? "column" : "row",
+                  gap: isMobile ? "8px" : "14px",
                   transition: "all 0.12s", cursor: "pointer",
                 }}>
-                  {/* Icon */}
-                  <div style={{
-                    width: "34px", height: "34px", borderRadius: "7px", flexShrink: 0,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: r.has_alert ? "rgba(255,71,87,0.12)" : "rgba(138,154,184,0.06)",
-                    border: `1px solid ${r.has_alert ? "rgba(255,71,87,0.25)" : "#1e2535"}`,
-                  }}>
-                    {r.has_alert
-                      ? <AlertTriangle style={{ width: "15px", height: "15px", color: "#ff4757" }} />
-                      : <FileText style={{ width: "15px", height: "15px", color: "#4a5878" }} />
-                    }
-                  </div>
+                  {/* Top row: icon + title + status */}
+                  <div style={{ display: "flex", alignItems: "center", gap: isMobile ? "8px" : "14px", width: "100%" }}>
+                    {/* Icon */}
+                    <div style={{
+                      width: isMobile ? "28px" : "34px", height: isMobile ? "28px" : "34px", borderRadius: isMobile ? "6px" : "7px", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: r.has_alert ? "rgba(255,71,87,0.12)" : "rgba(138,154,184,0.06)",
+                      border: `1px solid ${r.has_alert ? "rgba(255,71,87,0.25)" : "#1e2535"}`,
+                    }}>
+                      {r.has_alert
+                        ? <AlertTriangle style={{ width: "15px", height: "15px", color: "#ff4757" }} />
+                        : <FileText style={{ width: "15px", height: "15px", color: "#4a5878" }} />
+                      }
+                    </div>
 
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                      <span style={{ fontSize: "13px", color: "#e8edf2", fontWeight: 500 }}>
-                        {r.modalidad || "Estudio"} — {r.region_anatomica || "Sin región"}
-                      </span>
-                      {r.patient_name && (
+                    {/* Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: isMobile ? "12px" : "13px", color: "#e8edf2", fontWeight: 500 }}>
+                          {r.modalidad || "Estudio"} — {r.region_anatomica || "Sin región"}
+                        </span>
+                        {r.has_alert && (
+                          <span style={{
+                            fontSize: "10px", fontFamily: "IBM Plex Mono, monospace", fontWeight: 600,
+                            color: "#ff4757", background: "rgba(255,71,87,0.1)", border: "1px solid rgba(255,71,87,0.25)",
+                            borderRadius: "4px", padding: "1px 6px", letterSpacing: "0.04em",
+                          }}>
+                            ALERTA
+                          </span>
+                        )}
+                      </div>
+                      {!isMobile && r.patient_name && (
                         <span style={{ fontSize: "11px", color: "#8a9ab8", fontFamily: "IBM Plex Mono, monospace" }}>
                           {r.patient_name}{r.patient_rut ? ` · ${r.patient_rut}` : ""}
                         </span>
                       )}
-                      {r.has_alert && (
-                        <span style={{
-                          fontSize: "10px", fontFamily: "IBM Plex Mono, monospace", fontWeight: 600,
-                          color: "#ff4757", background: "rgba(255,71,87,0.1)", border: "1px solid rgba(255,71,87,0.25)",
-                          borderRadius: "4px", padding: "1px 6px", letterSpacing: "0.04em",
-                        }}>
-                          ALERTA
-                        </span>
-                      )}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "4px", flexWrap: "wrap" }}>
-                      {r.accession_number && (
-                        <span style={{ fontSize: "11px", color: "#4a5878", fontFamily: "IBM Plex Mono, monospace" }}>
-                          #{r.accession_number}
-                        </span>
-                      )}
-                      <span style={{ fontSize: "11px", color: "#4a5878", fontFamily: "IBM Plex Mono, monospace" }}>
-                        {formatDate(r.created_at)}
+
+                    {/* Status badge */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: st.dot, flexShrink: 0 }} />
+                      <span style={{
+                        fontSize: "11px", fontFamily: "IBM Plex Mono, monospace", fontWeight: 600,
+                        color: st.color, background: st.bg, border: `1px solid ${st.border}`,
+                        borderRadius: "5px", padding: "3px 9px", letterSpacing: "0.04em",
+                      }}>
+                        {r.status}
                       </span>
-                      <span style={{ fontSize: "11px", color: "#2a3550", fontFamily: "IBM Plex Mono, monospace" }}>
-                        v{r.version}
-                      </span>
-                      {r.assigned_to_name && (
-                        <span style={{ fontSize: "10px", color: "rgba(245,158,11,0.6)", fontFamily: "IBM Plex Mono, monospace" }}>
-                          → {r.assigned_to_name}
-                        </span>
-                      )}
-                      {r.signed_by_name && (
-                        <span style={{ fontSize: "10px", color: "rgba(46,213,115,0.6)", fontFamily: "IBM Plex Mono, monospace" }}>
-                          ✓ {r.signed_by_name}
-                        </span>
-                      )}
                     </div>
                   </div>
 
-                  {/* Status badge + link button */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                  {/* Bottom row: meta info */}
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: isMobile ? "8px" : "12px",
+                    flexWrap: "wrap",
+                    paddingLeft: isMobile ? 0 : "48px",
+                  }}>
+                    {isMobile && r.patient_name && (
+                      <span style={{ fontSize: "11px", color: "#8a9ab8", fontFamily: "IBM Plex Mono, monospace" }}>
+                        {r.patient_name}{r.patient_rut ? ` · ${r.patient_rut}` : ""}
+                      </span>
+                    )}
+                    {r.accession_number && (
+                      <span style={{ fontSize: "11px", color: "#4a5878", fontFamily: "IBM Plex Mono, monospace" }}>
+                        #{r.accession_number}
+                      </span>
+                    )}
+                    <span style={{ fontSize: "11px", color: "#4a5878", fontFamily: "IBM Plex Mono, monospace" }}>
+                      {formatDate(r.created_at)}
+                    </span>
+                    {!isMobile && (
+                      <span style={{ fontSize: "11px", color: "#2a3550", fontFamily: "IBM Plex Mono, monospace" }}>
+                        v{r.version}
+                      </span>
+                    )}
+                    {r.assigned_to_name && (
+                      <span style={{ fontSize: "10px", color: "rgba(245,158,11,0.6)", fontFamily: "IBM Plex Mono, monospace" }}>
+                        → {r.assigned_to_name}
+                      </span>
+                    )}
+                    {r.signed_by_name && (
+                      <span style={{ fontSize: "10px", color: "rgba(46,213,115,0.6)", fontFamily: "IBM Plex Mono, monospace" }}>
+                        ✓ {r.signed_by_name}
+                      </span>
+                    )}
                     {!r.patient_name && (
                       <button
                         onClick={(e) => openLinkModal(e, r)}
@@ -281,14 +309,6 @@ export default function ReportsPage() {
                         Vincular
                       </button>
                     )}
-                    <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: st.dot, flexShrink: 0 }} />
-                    <span style={{
-                      fontSize: "11px", fontFamily: "IBM Plex Mono, monospace", fontWeight: 600,
-                      color: st.color, background: st.bg, border: `1px solid ${st.border}`,
-                      borderRadius: "5px", padding: "3px 9px", letterSpacing: "0.04em",
-                    }}>
-                      {r.status}
-                    </span>
                   </div>
                 </div>
               </Link>

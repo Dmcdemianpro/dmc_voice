@@ -11,9 +11,10 @@ import { reportsApi, adminApi, worklistApi } from "@/lib/api";
 import type { User, WorklistItem } from "@/types/report.types";
 import { toast } from "sonner";
 import {
-  PenLine, Send, FileDown, Loader2, ChevronRight,
+  PenLine, Send, FileDown, Loader2, ChevronRight, Menu,
   FileText, Trash2, Save, Mic, RotateCcw, UserCheck, CheckCircle, AlertTriangle, User as UserIcon, Link2,
 } from "lucide-react";
+import { useMobileCtx } from "../../layout";
 
 const mono = "var(--font-ibm-plex-mono), monospace";
 
@@ -47,6 +48,7 @@ function formatDate(d: string) {
 export default function ReportDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { isMobile, toggleMenu } = useMobileCtx();
   const { currentReport, claudeResult, loadReport, signReport, sendToRis, generatePdf } = useReportStore();
   const authUser = useAuthStore((s) => s.user);
   const isAdmin = authUser?.role === "ADMIN" || authUser?.role === "JEFE_SERVICIO";
@@ -235,72 +237,97 @@ export default function ReportDetailPage() {
       <div style={{
         height: 52, flexShrink: 0,
         display: "flex", alignItems: "center",
-        padding: "0 20px", gap: 8,
+        padding: isMobile ? "0 10px" : "0 20px", gap: 8,
         background: C.surface,
         borderBottom: `1px solid ${C.border}`,
       }}>
+        {/* Hamburger (mobile) */}
+        {isMobile && (
+          <button
+            onClick={toggleMenu}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 6, width: 34, height: 34,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", flexShrink: 0, color: "rgba(148,163,184,0.8)",
+            }}
+          >
+            <Menu size={16} />
+          </button>
+        )}
+
         {/* Breadcrumb */}
-        <button
-          onClick={() => router.push("/reports")}
-          style={{
-            background: "none", border: "none", cursor: "pointer",
-            fontSize: 11, color: C.muted, display: "flex", alignItems: "center", gap: 4,
-            transition: "color 0.15s", padding: 0,
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = C.sub)}
-          onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
-        >
-          Informes
-        </button>
-        <ChevronRight size={12} style={{ color: C.muted }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <FileText size={13} style={{ color: C.cyan }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+        {!isMobile && (
+          <>
+            <button
+              onClick={() => router.push("/reports")}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 11, color: C.muted, display: "flex", alignItems: "center", gap: 4,
+                transition: "color 0.15s", padding: 0,
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = C.sub)}
+              onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
+            >
+              Informes
+            </button>
+            <ChevronRight size={12} style={{ color: C.muted }} />
+          </>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <FileText size={13} style={{ color: C.cyan, flexShrink: 0 }} />
+          <span style={{
+            fontSize: isMobile ? 12 : 13, fontWeight: 600, color: C.text,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
             {currentReport.modalidad || "Estudio"} — {currentReport.region_anatomica || "Sin región"}
           </span>
         </div>
 
-        {/* Meta */}
-        <div style={{ marginLeft: 12, display: "flex", alignItems: "center", gap: 6 }}>
-          {currentReport.accession_number && (
-            <span style={{
-              fontSize: 9.5, padding: "2px 8px",
-              background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.18)",
-              borderRadius: 4, color: C.cyan, letterSpacing: "0.08em",
-            }}>
-              {currentReport.accession_number}
-            </span>
-          )}
-          {currentReport.patient_name && (
-            <span style={{
-              fontSize: 9.5, padding: "2px 8px",
-              background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.18)",
-              borderRadius: 4, color: C.sub, letterSpacing: "0.06em",
-              display: "flex", alignItems: "center", gap: 4,
-            }}>
-              <UserIcon size={9} />
-              {currentReport.patient_name}
-              {currentReport.patient_rut && (
-                <span style={{ color: C.muted, marginLeft: 2 }}>· {currentReport.patient_rut}</span>
-              )}
-            </span>
-          )}
-          {currentReport.assigned_to_name && (
-            <span style={{
-              fontSize: 9.5, padding: "2px 8px",
-              background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.25)",
-              borderRadius: 4, color: C.amber, letterSpacing: "0.06em",
-              display: "flex", alignItems: "center", gap: 4,
-            }}>
-              <UserCheck size={9} />
-              {currentReport.assigned_to_name}
-            </span>
-          )}
-          <span style={{ fontSize: 10, color: C.muted }}>{formatDate(currentReport.created_at)}</span>
-        </div>
+        {/* Meta (hidden on mobile) */}
+        {!isMobile && (
+          <div style={{ marginLeft: 12, display: "flex", alignItems: "center", gap: 6 }}>
+            {currentReport.accession_number && (
+              <span style={{
+                fontSize: 9.5, padding: "2px 8px",
+                background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.18)",
+                borderRadius: 4, color: C.cyan, letterSpacing: "0.08em",
+              }}>
+                {currentReport.accession_number}
+              </span>
+            )}
+            {currentReport.patient_name && (
+              <span style={{
+                fontSize: 9.5, padding: "2px 8px",
+                background: "rgba(148,163,184,0.06)", border: "1px solid rgba(148,163,184,0.18)",
+                borderRadius: 4, color: C.sub, letterSpacing: "0.06em",
+                display: "flex", alignItems: "center", gap: 4,
+              }}>
+                <UserIcon size={9} />
+                {currentReport.patient_name}
+                {currentReport.patient_rut && (
+                  <span style={{ color: C.muted, marginLeft: 2 }}>· {currentReport.patient_rut}</span>
+                )}
+              </span>
+            )}
+            {currentReport.assigned_to_name && (
+              <span style={{
+                fontSize: 9.5, padding: "2px 8px",
+                background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.25)",
+                borderRadius: 4, color: C.amber, letterSpacing: "0.06em",
+                display: "flex", alignItems: "center", gap: 4,
+              }}>
+                <UserCheck size={9} />
+                {currentReport.assigned_to_name}
+              </span>
+            )}
+            <span style={{ fontSize: 10, color: C.muted }}>{formatDate(currentReport.created_at)}</span>
+          </div>
+        )}
 
         {/* Status */}
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", flexShrink: 0 }}>
           <span style={{
             fontSize: 9.5, padding: "3px 10px",
             background: `${statusColor}15`, border: `1px solid ${statusColor}35`,
@@ -321,10 +348,12 @@ export default function ReportDetailPage() {
 
       {/* ── Content ── */}
       <div style={{
-        flex: 1, display: "grid",
-        gridTemplateColumns: "1fr 280px",
-        gap: 16, padding: 16,
-        minHeight: 0, overflow: "hidden",
+        flex: 1, display: isMobile ? "flex" : "grid",
+        flexDirection: isMobile ? "column" : undefined,
+        gridTemplateColumns: isMobile ? undefined : "1fr 280px",
+        gap: isMobile ? 12 : 16,
+        padding: isMobile ? 10 : 16,
+        minHeight: 0, overflow: isMobile ? "auto" : "hidden",
       }}>
 
         {/* Left: editor + actions */}
@@ -349,7 +378,7 @@ export default function ReportDetailPage() {
               </span>
 
               {/* Action buttons (right side) */}
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" as const, justifyContent: "flex-end" }}>
 
                 {/* Re-dictate: BORRADOR */}
                 {currentReport.status === "BORRADOR" && currentReport.study_id && (
@@ -473,7 +502,7 @@ export default function ReportDetailPage() {
                     }}
                     title="Vincular este informe a un paciente del worklist"
                   >
-                    <Link2 size={10} /> Vincular Paciente
+                    <Link2 size={10} /> {isMobile ? "Vincular" : "Vincular Paciente"}
                   </button>
                 )}
 

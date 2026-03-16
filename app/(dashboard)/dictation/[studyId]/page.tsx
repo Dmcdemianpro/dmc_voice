@@ -9,8 +9,9 @@ import { AlertBanner } from "@/components/dictation/AlertBanner";
 import { DiffViewer } from "@/components/dictation/DiffViewer";
 import { useReportStore } from "@/store/reportStore";
 import { useFeedbackCapture } from "@/hooks/useFeedbackCapture";
-import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare } from "lucide-react";
+import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu } from "lucide-react";
 import Link from "next/link";
+import { useMobileCtx } from "../../layout";
 
 const mono = "var(--font-ibm-plex-mono), monospace";
 
@@ -71,6 +72,7 @@ function PanelHeader({ icon: Icon, label, right }: {
 function DictationContent() {
   const params = useParams<{ studyId: string }>();
   const searchParams = useSearchParams();
+  const { isMobile, toggleMenu } = useMobileCtx();
   const {
     transcript, isProcessing, isRecording,
     currentReport, claudeResult,
@@ -138,60 +140,87 @@ function DictationContent() {
       <div style={{
         height: 52, flexShrink: 0,
         display: "flex", alignItems: "center",
-        padding: "0 20px",
+        padding: isMobile ? "0 10px" : "0 20px",
         background: C.surface,
         borderBottom: `1px solid ${C.borderSub}`,
         gap: 8,
       }}>
-        <Link href="/worklist" style={{
-          fontSize: 11, color: C.muted, textDecoration: "none",
-          display: "flex", alignItems: "center", gap: 4,
-          transition: "color 0.15s",
-        }}
-          onMouseEnter={e => (e.currentTarget.style.color = C.sub)}
-          onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
-        >
-          Worklist
-        </Link>
-        <ChevronRight size={12} style={{ color: C.muted }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Mic size={13} style={{ color: C.cyan }} />
-          <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Dictado de Informe</span>
+        {/* Hamburger (mobile) */}
+        {isMobile && (
+          <button
+            onClick={toggleMenu}
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 6, width: 34, height: 34,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", flexShrink: 0, color: "rgba(148,163,184,0.8)",
+            }}
+          >
+            <Menu size={16} />
+          </button>
+        )}
+
+        {!isMobile && (
+          <>
+            <Link href="/worklist" style={{
+              fontSize: 11, color: C.muted, textDecoration: "none",
+              display: "flex", alignItems: "center", gap: 4,
+              transition: "color 0.15s",
+            }}
+              onMouseEnter={e => (e.currentTarget.style.color = C.sub)}
+              onMouseLeave={e => (e.currentTarget.style.color = C.muted)}
+            >
+              Worklist
+            </Link>
+            <ChevronRight size={12} style={{ color: C.muted }} />
+          </>
+        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <Mic size={13} style={{ color: C.cyan, flexShrink: 0 }} />
+          <span style={{
+            fontSize: isMobile ? 12 : 13, fontWeight: 600, color: C.text,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {isMobile ? "Dictado" : "Dictado de Informe"}
+          </span>
         </div>
 
-        {/* Study info pills */}
-        <div style={{ marginLeft: 16, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
-          {accessionNumber && (
-            <span style={{
-              fontSize: 9.5, padding: "3px 9px",
-              background: "rgba(0,212,255,0.06)",
-              border: `1px solid rgba(0,212,255,0.18)`,
-              borderRadius: 4, color: C.cyan, letterSpacing: "0.08em",
-            }}>
-              {accessionNumber}
-            </span>
-          )}
-          {modalidad && (
-            <span style={{
-              fontSize: 9.5, padding: "3px 9px",
-              background: "rgba(148,163,184,0.06)",
-              border: `1px solid rgba(148,163,184,0.15)`,
-              borderRadius: 4, color: C.sub, letterSpacing: "0.08em",
-            }}>
-              {modalidad}
-            </span>
-          )}
-          {patientName && (
-            <span style={{ fontSize: 11, color: C.sub }}>· {patientName}</span>
-          )}
-          {region && (
-            <span style={{ fontSize: 11, color: C.muted }}>· {region}</span>
-          )}
-        </div>
+        {/* Study info pills (hidden on mobile) */}
+        {!isMobile && (
+          <div style={{ marginLeft: 16, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
+            {accessionNumber && (
+              <span style={{
+                fontSize: 9.5, padding: "3px 9px",
+                background: "rgba(0,212,255,0.06)",
+                border: `1px solid rgba(0,212,255,0.18)`,
+                borderRadius: 4, color: C.cyan, letterSpacing: "0.08em",
+              }}>
+                {accessionNumber}
+              </span>
+            )}
+            {modalidad && (
+              <span style={{
+                fontSize: 9.5, padding: "3px 9px",
+                background: "rgba(148,163,184,0.06)",
+                border: `1px solid rgba(148,163,184,0.15)`,
+                borderRadius: 4, color: C.sub, letterSpacing: "0.08em",
+              }}>
+                {modalidad}
+              </span>
+            )}
+            {patientName && (
+              <span style={{ fontSize: 11, color: C.sub }}>· {patientName}</span>
+            )}
+            {region && (
+              <span style={{ fontSize: 11, color: C.muted }}>· {region}</span>
+            )}
+          </div>
+        )}
 
         {/* Status badge */}
         {currentReport && (
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {fb.sessionId && (
               <span style={{ fontSize: 9, color: C.red, letterSpacing: "0.1em" }}>● REC</span>
             )}
@@ -218,10 +247,12 @@ function DictationContent() {
 
       {/* ── Main 2-column layout ── */}
       <div style={{
-        flex: 1, display: "grid",
-        gridTemplateColumns: "320px 1fr",
-        gap: 16, padding: 16,
-        minHeight: 0, overflow: "hidden",
+        flex: 1, display: isMobile ? "flex" : "grid",
+        flexDirection: isMobile ? "column" : undefined,
+        gridTemplateColumns: isMobile ? undefined : "320px 1fr",
+        gap: isMobile ? 12 : 16,
+        padding: isMobile ? 10 : 16,
+        minHeight: 0, overflow: isMobile ? "auto" : "hidden",
       }}>
 
         {/* ── Col 1: Grabación + Transcripción ── */}

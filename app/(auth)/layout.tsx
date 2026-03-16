@@ -1,4 +1,10 @@
+"use client";
+
+import { useMobile } from "@/hooks/useMobile";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const { isMobile } = useMobile();
+
   return (
     <div style={{
         height: "100vh",
@@ -8,7 +14,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         background: "#060810",
       }}>
 
-        {/* ════════════ LEFT PANEL ════════════ */}
+        {/* ════════════ LEFT PANEL (hidden on mobile) ════════════ */}
+        {!isMobile && (
         <div style={{
           flex: "0 0 58%",
           position: "relative",
@@ -308,6 +315,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </div>
+        )}
 
         {/* ════════════ RIGHT PANEL ════════════ */}
         <div style={{
@@ -355,11 +363,36 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             borderLeft: "1px solid rgba(0,212,255,0.1)",
           }} />
 
+          {/* Mobile logo */}
+          {isMobile && (
+            <div style={{
+              position: "absolute", top: 24, left: 24,
+              display: "flex", alignItems: "center", gap: 9, zIndex: 2,
+            }}>
+              <div style={{
+                width: 30, height: 30,
+                background: "rgba(0,212,255,0.08)",
+                border: "1px solid rgba(0,212,255,0.35)",
+                borderRadius: 5,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 12px rgba(0,212,255,0.1)",
+              }}>
+                <svg width="17" height="11" viewBox="0 0 17 11" fill="none">
+                  <path d="M1 5.5H3.5L5 1L7 10L8.5 3L10 8L11.5 4.5L13 6.5L14 5.5H16"
+                    stroke="#00d4ff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", letterSpacing: "0.05em" }}>
+                RIS Voice<span style={{ color: "#00d4ff" }}>.</span>AI
+              </span>
+            </div>
+          )}
+
           {/* Form card */}
           <div style={{
             position: "relative", zIndex: 1,
             width: "100%", maxWidth: "360px",
-            padding: "0 32px",
+            padding: isMobile ? "0 20px" : "0 32px",
           }}>
             {children}
           </div>

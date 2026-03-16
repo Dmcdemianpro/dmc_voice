@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 import { canAccessRoute, ROLE_META, type Role } from "@/lib/permissions";
 import {
   LayoutDashboard, ClipboardList, FileText,
-  Users, LogOut, Shield, Activity, Lock, BrainCircuit, Settings2,
+  Users, LogOut, Shield, Activity, Lock, BrainCircuit, Settings2, X,
 } from "lucide-react";
 
 // ── Definición de todos los ítems de navegación ──────────────────────────────
@@ -34,11 +34,12 @@ const mono = "var(--font-ibm-plex-mono), monospace";
 // ── Componente NavLink ────────────────────────────────────────────────────────
 
 function NavLink({
-  href, icon: Icon, label, active,
-}: { href: string; icon: React.ElementType; label: string; active: boolean }) {
+  href, icon: Icon, label, active, onClick,
+}: { href: string; icon: React.ElementType; label: string; active: boolean; onClick?: () => void }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       style={{
         display: "flex", alignItems: "center", gap: 10,
         padding: "8px 10px", borderRadius: 5, fontSize: 12.5,
@@ -97,7 +98,13 @@ function LockedLink({ label, icon: Icon }: { label: string; icon: React.ElementT
 
 // ── Sidebar principal ─────────────────────────────────────────────────────────
 
-export function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+  isMobile?: boolean;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose, isMobile }: SidebarProps) {
   const pathname  = usePathname();
   const { user, logout } = useAuthStore();
   const role = (user?.role ?? "TECNOLOGO") as Role;
@@ -110,20 +117,33 @@ export function Sidebar() {
   // Admin section visible solo si el rol tiene acceso a algún ítem admin
   const showAdminSection = adminItems.some(i => canAccessRoute(role, i.href));
 
-  return (
+  // En móvil, si no está abierto, no renderizar
+  if (isMobile && !mobileOpen) return null;
+
+  const handleNavClick = () => {
+    if (isMobile && onMobileClose) onMobileClose();
+  };
+
+  const sidebarContent = (
     <aside style={{
-      width: 220, flexShrink: 0,
+      width: isMobile ? 260 : 220, flexShrink: 0,
       display: "flex", flexDirection: "column",
-      height: "100vh", position: "sticky", top: 0,
+      height: "100vh",
+      position: isMobile ? "fixed" : "sticky",
+      top: 0,
+      left: 0,
+      zIndex: isMobile ? 1001 : undefined,
       background: "#07090f",
       borderRight: "1px solid rgba(0,212,255,0.08)",
       fontFamily: mono,
+      boxShadow: isMobile ? "4px 0 24px rgba(0,0,0,0.5)" : undefined,
     }}>
 
-      {/* ── Logo ─────────────────────────────────────────────────────────────── */}
+      {/* ── Logo + close button on mobile ──────────────────────────────────── */}
       <div style={{
         height: 56, display: "flex", alignItems: "center",
         padding: "0 16px", borderBottom: "1px solid rgba(0,212,255,0.07)", flexShrink: 0,
+        justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
@@ -146,6 +166,18 @@ export function Sidebar() {
             </div>
           </div>
         </div>
+        {isMobile && (
+          <button
+            onClick={onMobileClose}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "rgba(148,163,184,0.6)", padding: 4,
+              display: "flex", alignItems: "center",
+            }}
+          >
+            <X size={18} />
+          </button>
+        )}
       </div>
 
       {/* ── Rol del usuario (badge) ────────────────────────────────────────────── */}
@@ -190,7 +222,7 @@ export function Sidebar() {
             const allowed = canAccessRoute(role, href);
 
             return allowed
-              ? <NavLink key={href} href={href} icon={icon} label={label} active={active} />
+              ? <NavLink key={href} href={href} icon={icon} label={label} active={active} onClick={handleNavClick} />
               : <LockedLink key={href} icon={icon} label={label} />;
           })}
         </div>
@@ -213,7 +245,7 @@ export function Sidebar() {
               const allowed = canAccessRoute(role, href);
 
               return allowed
-                ? <NavLink key={href} href={href} icon={icon} label={label} active={active} />
+                ? <NavLink key={href} href={href} icon={icon} label={label} active={active} onClick={handleNavClick} />
                 : <LockedLink key={href} icon={icon} label={label} />;
             })}
           </div>
@@ -271,7 +303,7 @@ export function Sidebar() {
 
         <button
           type="button"
-          onClick={() => logout()}
+          onClick={() => { logout(); if (isMobile && onMobileClose) onMobileClose(); }}
           style={{
             width: "100%", display: "flex", alignItems: "center", gap: 8,
             padding: "7px 10px", borderRadius: 5, fontSize: 12,
@@ -296,4 +328,24 @@ export function Sidebar() {
       </div>
     </aside>
   );
+
+  // En móvil, envolver en overlay
+  if (isMobile) {
+    return (
+      <>
+        {/* Overlay backdrop */}
+        <div
+          onClick={onMobileClose}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(2px)",
+          }}
+        />
+        {sidebarContent}
+      </>
+    );
+  }
+
+  return sidebarContent;
 }

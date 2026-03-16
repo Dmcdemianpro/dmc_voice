@@ -16,6 +16,7 @@ import {
   ImageIcon, UserCheck, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useMobileCtx } from "../layout";
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -188,6 +189,7 @@ export default function WorklistPage() {
   const canCreate = hasPermission((user?.role ?? "RADIOLOGO") as Role, "worklist.create");
   const isAdmin = user?.role === "ADMIN" || user?.role === "JEFE_SERVICIO";
   const canToggleImages = isAdmin || user?.role === "TECNOLOGO";
+  const { isMobile, toggleMenu } = useMobileCtx();
 
   const [items, setItems] = useState<WorklistItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -420,12 +422,12 @@ export default function WorklistPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <Header title="Worklist" subtitle="Estudios pendientes de informe" />
+      <Header title="Worklist" subtitle="Estudios pendientes de informe" isMobile={isMobile} onMenuToggle={toggleMenu} />
 
-      <div style={{ flex: 1, padding: "24px", overflowY: "auto" }}>
+      <div style={{ flex: 1, padding: isMobile ? "12px" : "24px", overflowY: "auto" }}>
 
         {/* Stats + controles */}
-        <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: isMobile ? "8px" : "12px", marginBottom: isMobile ? "12px" : "20px", flexWrap: "wrap" }}>
           {[
             { label: "Total pendientes", value: items.length, color: "#00d4ff" },
             { label: "En proceso",       value: items.filter(i => i.status === "EN_PROCESO").length, color: "#ffa502" },
@@ -433,18 +435,21 @@ export default function WorklistPage() {
           ].map(({ label, value, color }) => (
             <div key={label} style={{
               background: "#131720", border: "1px solid #1e2535",
-              borderRadius: "6px", padding: "10px 16px",
-              display: "flex", flexDirection: "column", gap: "2px", minWidth: "120px",
+              borderRadius: "6px", padding: isMobile ? "8px 12px" : "10px 16px",
+              display: "flex", flexDirection: "column", gap: "2px",
+              minWidth: isMobile ? "90px" : "120px",
+              flex: isMobile ? "1 1 0" : undefined,
             }}>
-              <span style={{ fontSize: "10px", color: "#4a5878", fontFamily: "IBM Plex Mono, monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
-              <span style={{ fontSize: "20px", fontWeight: 700, color, fontFamily: "IBM Plex Mono, monospace", lineHeight: 1.2 }}>{loading ? "—" : value}</span>
+              <span style={{ fontSize: isMobile ? "9px" : "10px", color: "#4a5878", fontFamily: "IBM Plex Mono, monospace", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+              <span style={{ fontSize: isMobile ? "16px" : "20px", fontWeight: 700, color, fontFamily: "IBM Plex Mono, monospace", lineHeight: 1.2 }}>{loading ? "—" : value}</span>
             </div>
           ))}
+        </div>
 
-          <div style={{ flex: 1 }} />
-
+        {/* Search + actions row */}
+        <div style={{ display: "flex", gap: "8px", marginBottom: isMobile ? "12px" : "20px", flexWrap: "wrap" }}>
           {/* Search */}
-          <div style={{ position: "relative", width: "240px" }}>
+          <div style={{ position: "relative", width: isMobile ? "100%" : "240px", flex: isMobile ? "1 1 100%" : undefined }}>
             <Search style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", width: "13px", height: "13px", color: "#4a5878", pointerEvents: "none" }} />
             <input
               value={search}
@@ -455,7 +460,7 @@ export default function WorklistPage() {
                 borderRadius: "6px", paddingLeft: "32px", paddingRight: "12px",
                 paddingTop: "8px", paddingBottom: "8px",
                 fontSize: "12px", fontFamily: "IBM Plex Mono, monospace", color: "#e8edf2",
-                outline: "none",
+                outline: "none", boxSizing: "border-box",
               }}
               onFocus={e => (e.target.style.borderColor = "rgba(0,212,255,0.4)")}
               onBlur={e => (e.target.style.borderColor = "#1e2535")}
@@ -469,11 +474,12 @@ export default function WorklistPage() {
               background: "#131720", border: "1px solid #1e2535", borderRadius: "6px",
               padding: "8px 12px", fontSize: "12px", fontFamily: "IBM Plex Mono, monospace",
               color: "#e8edf2", outline: "none", cursor: "pointer",
+              flex: isMobile ? "1 1 0" : undefined,
             }}
           >
             {MODALIDADES.map((m) => (
               <option key={m} value={m} style={{ background: "#131720" }}>
-                {m || "Todas las modalidades"}
+                {m || "Todas"}
               </option>
             ))}
           </select>
@@ -491,12 +497,13 @@ export default function WorklistPage() {
                 border: "1px solid rgba(0,212,255,0.35)", borderRadius: "6px",
                 color: "#00d4ff", fontSize: "12px", fontFamily: "IBM Plex Mono, monospace",
                 fontWeight: 600, cursor: "pointer", transition: "all 0.15s",
+                whiteSpace: "nowrap",
               }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,212,255,0.18)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,212,255,0.1)"; }}
             >
               <Plus style={{ width: "13px", height: "13px" }} />
-              Nuevo Estudio
+              {isMobile ? "Nuevo" : "Nuevo Estudio"}
             </button>
           )}
 
@@ -506,7 +513,7 @@ export default function WorklistPage() {
               background: "#131720", border: "1px solid #1e2535", borderRadius: "6px",
               padding: "8px 10px", color: "#4a5878", cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s",
+              transition: "all 0.15s", flexShrink: 0,
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#2a3550"; (e.currentTarget as HTMLButtonElement).style.color = "#8a9ab8"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e2535"; (e.currentTarget as HTMLButtonElement).style.color = "#4a5878"; }}
@@ -515,34 +522,46 @@ export default function WorklistPage() {
           </button>
         </div>
 
-        {/* Table */}
+        {/* Table (desktop) / Cards (mobile) */}
         <div style={{ background: "#131720", border: "1px solid #1e2535", borderRadius: "8px", overflow: "hidden" }}>
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "140px 1fr 100px 80px 130px 110px 60px 160px 80px",
-            background: "#0f1218", borderBottom: "1px solid #1e2535", padding: "0 4px",
-          }}>
-            {["N° Acceso", "Paciente", "Modalidad", "Previsión", "Programado", "Estado", "Origen", "Radiólogo", ""].map((col, i) => (
-              <div key={i} style={{
-                padding: "11px 12px", fontSize: "10px", fontFamily: "IBM Plex Mono, monospace",
-                color: "#4a5878", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600,
-              }}>{col}</div>
-            ))}
-          </div>
+          {/* Desktop table header */}
+          {!isMobile && (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "140px 1fr 100px 80px 130px 110px 60px 160px 80px",
+              background: "#0f1218", borderBottom: "1px solid #1e2535", padding: "0 4px",
+            }}>
+              {["N° Acceso", "Paciente", "Modalidad", "Previsión", "Programado", "Estado", "Origen", "Radiólogo", ""].map((col, i) => (
+                <div key={i} style={{
+                  padding: "11px 12px", fontSize: "10px", fontFamily: "IBM Plex Mono, monospace",
+                  color: "#4a5878", textTransform: "uppercase", letterSpacing: "0.07em", fontWeight: 600,
+                }}>{col}</div>
+              ))}
+            </div>
+          )}
 
           {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} style={{
-                display: "grid", gridTemplateColumns: "140px 1fr 100px 80px 130px 110px 60px 160px 80px",
-                borderBottom: "1px solid #1a2030", padding: "0 4px",
-              }}>
-                {Array.from({ length: 9 }).map((_, j) => (
-                  <div key={j} style={{ padding: "14px 12px" }}>
-                    <div style={{ height: "10px", background: "#1a2030", borderRadius: "3px", animation: "pulse 1.5s ease-in-out infinite", width: j === 1 ? "70%" : "85%" }} />
-                  </div>
-                ))}
-              </div>
-            ))
+            isMobile ? (
+              Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{ padding: "14px", borderBottom: "1px solid #1a2030" }}>
+                  <div style={{ height: 12, background: "#1a2030", borderRadius: 3, marginBottom: 8, width: "60%", animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div style={{ height: 10, background: "#1a2030", borderRadius: 3, width: "40%", animation: "pulse 1.5s ease-in-out infinite 0.2s" }} />
+                </div>
+              ))
+            ) : (
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} style={{
+                  display: "grid", gridTemplateColumns: "140px 1fr 100px 80px 130px 110px 60px 160px 80px",
+                  borderBottom: "1px solid #1a2030", padding: "0 4px",
+                }}>
+                  {Array.from({ length: 9 }).map((_, j) => (
+                    <div key={j} style={{ padding: "14px 12px" }}>
+                      <div style={{ height: "10px", background: "#1a2030", borderRadius: "3px", animation: "pulse 1.5s ease-in-out infinite", width: j === 1 ? "70%" : "85%" }} />
+                    </div>
+                  ))}
+                </div>
+              ))
+            )
           ) : filtered.length === 0 ? (
             <div style={{ padding: "48px 24px", textAlign: "center" }}>
               <Activity style={{ width: "32px", height: "32px", color: "#1e2535", margin: "0 auto 12px" }} />
@@ -553,7 +572,119 @@ export default function WorklistPage() {
                 {search ? "Intenta con otro término" : "El worklist está vacío"}
               </div>
             </div>
-          ) : filtered.map((item) => {
+          ) : isMobile ? (
+            /* ── Mobile card view ── */
+            filtered.map((item) => {
+              const st = STATUS_STYLE[item.status] || { color: "#4a5878", bg: "transparent", border: "#1e2535" };
+              const mc = MODAL_COLORS[item.modalidad || ""] || "#4a5878";
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    padding: "12px 14px",
+                    borderBottom: "1px solid #1a2030",
+                    display: "flex", flexDirection: "column", gap: 8,
+                  }}
+                >
+                  {/* Row 1: patient + status */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.15)",
+                      display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                    }}>
+                      <UserIcon style={{ width: 12, height: 12, color: "#00d4ff" }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: "#e8edf2", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {item.patient_name || "Sin nombre"}
+                      </div>
+                      {item.patient_rut && (
+                        <div style={{ fontSize: 10, color: "#4a5878", fontFamily: "IBM Plex Mono, monospace" }}>{item.patient_rut}</div>
+                      )}
+                    </div>
+                    <span style={{
+                      fontSize: 9, fontFamily: "IBM Plex Mono, monospace", fontWeight: 600,
+                      color: st.color, background: st.bg, border: `1px solid ${st.border}`,
+                      borderRadius: 4, padding: "2px 7px", flexShrink: 0,
+                    }}>
+                      {item.status}
+                    </span>
+                  </div>
+
+                  {/* Row 2: meta badges */}
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{
+                      fontSize: 10, fontFamily: "IBM Plex Mono, monospace", fontWeight: 600,
+                      color: mc, background: `${mc}18`, border: `1px solid ${mc}35`,
+                      borderRadius: 4, padding: "1px 6px",
+                    }}>
+                      {item.modalidad || "—"}
+                    </span>
+                    {item.accession_number && (
+                      <span style={{ fontSize: 10, color: "#00d4ff", fontFamily: "IBM Plex Mono, monospace" }}>
+                        #{item.accession_number}
+                      </span>
+                    )}
+                    {item.scheduled_at && (
+                      <span style={{ fontSize: 10, color: "#4a5878", fontFamily: "IBM Plex Mono, monospace", display: "flex", alignItems: "center", gap: 3 }}>
+                        <Clock style={{ width: 9, height: 9 }} />
+                        {formatDate(item.scheduled_at)}
+                      </span>
+                    )}
+                    {item.has_images && <ImageIcon style={{ width: 10, height: 10, color: "#10b981" }} />}
+                  </div>
+
+                  {/* Row 3: actions */}
+                  <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                    {item.assigned_to_name && (
+                      <span style={{ fontSize: 10, color: "#f59e0b", fontFamily: "IBM Plex Mono, monospace", display: "flex", alignItems: "center", gap: 3, marginRight: "auto" }}>
+                        <UserCheck style={{ width: 9, height: 9 }} />
+                        {item.assigned_to_name}
+                      </span>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={() => setAssignTarget(item)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 4,
+                          padding: "4px 8px", background: "rgba(245,158,11,0.08)",
+                          border: "1px solid rgba(245,158,11,0.3)", borderRadius: 4,
+                          color: "#f59e0b", fontSize: 10, fontFamily: "IBM Plex Mono, monospace",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <UserCheck style={{ width: 9, height: 9 }} /> Asignar
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        const studyId = item.study_id || item.id;
+                        const qs = new URLSearchParams();
+                        if (item.accession_number) qs.set("accession", item.accession_number);
+                        if (item.patient_name) qs.set("patient", item.patient_name);
+                        if (item.modalidad) qs.set("modalidad", item.modalidad);
+                        if (item.region) qs.set("region", item.region);
+                        const params = qs.toString() ? `?${qs.toString()}` : "";
+                        router.push(`/dictation/${studyId}${params}`);
+                      }}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 4,
+                        padding: "5px 10px", background: "rgba(0,212,255,0.12)",
+                        border: "1px solid rgba(0,212,255,0.35)", borderRadius: 5,
+                        color: "#00d4ff", fontSize: 11, fontFamily: "IBM Plex Mono, monospace",
+                        fontWeight: 600, cursor: "pointer",
+                      }}
+                    >
+                      <Mic style={{ width: 11, height: 11 }} /> Dictar
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            /* ── Desktop table rows ── */
+            filtered.map((item) => {
             const isHovered = hoveredRow === item.id;
             const st = STATUS_STYLE[item.status] || { color: "#4a5878", bg: "transparent", border: "#1e2535" };
             const mc = MODAL_COLORS[item.modalidad || ""] || "#4a5878";
@@ -597,7 +728,6 @@ export default function WorklistPage() {
                   }}>
                     {item.modalidad || "—"}
                   </span>
-                  {/* Images indicator */}
                   {canToggleImages ? (
                     <button
                       onClick={e => { e.stopPropagation(); handleToggleImages(item.id); }}
@@ -644,7 +774,6 @@ export default function WorklistPage() {
                     {sb.label}
                   </span>
                 </div>
-                {/* Radiólogo column */}
                 <div style={{ padding: "10px 12px", display: "flex", alignItems: "center" }}>
                   {item.assigned_to_name ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -682,7 +811,6 @@ export default function WorklistPage() {
                     <span style={{ fontSize: 10, color: "#3a4a68", fontFamily: "IBM Plex Mono, monospace" }}>—</span>
                   )}
                 </div>
-
                 <div style={{ padding: "10px 12px", display: "flex", alignItems: "center" }}>
                   <button
                     onClick={() => {
@@ -711,7 +839,7 @@ export default function WorklistPage() {
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
 
         {!loading && filtered.length > 0 && (

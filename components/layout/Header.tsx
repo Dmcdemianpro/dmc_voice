@@ -1,16 +1,18 @@
 "use client";
 
-import { Bell, ChevronRight } from "lucide-react";
+import { Bell, ChevronRight, Menu } from "lucide-react";
 import { useReportStore } from "@/store/reportStore";
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
+  onMenuToggle?: () => void;
+  isMobile?: boolean;
 }
 
 const mono = "var(--font-ibm-plex-mono), monospace";
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, onMenuToggle, isMobile }: HeaderProps) {
   const { alerts } = useReportStore();
   const alertCount = alerts.length;
 
@@ -21,22 +23,44 @@ export function Header({ title, subtitle }: HeaderProps) {
       borderBottom: "1px solid rgba(0,212,255,0.07)",
       display: "flex",
       alignItems: "center",
-      padding: "0 24px",
-      gap: 12,
+      padding: isMobile ? "0 12px" : "0 24px",
+      gap: isMobile ? 8 : 12,
       position: "sticky",
       top: 0,
       zIndex: 20,
       backdropFilter: "blur(8px)",
       fontFamily: mono,
     }}>
+      {/* Hamburger button (mobile only) */}
+      {isMobile && onMenuToggle && (
+        <button
+          onClick={onMenuToggle}
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 6,
+            width: 34, height: 34,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", flexShrink: 0,
+            color: "rgba(148,163,184,0.8)",
+          }}
+        >
+          <Menu size={16} />
+        </button>
+      )}
+
       {/* Breadcrumb / title */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <span style={{ fontSize: 9, color: "rgba(0,212,255,0.8)", textTransform: "uppercase", letterSpacing: "0.22em", flexShrink: 0 }}>
-          RIS
-        </span>
-        <ChevronRight size={10} style={{ color: "rgba(0,212,255,0.2)", flexShrink: 0 }} />
+        {!isMobile && (
+          <>
+            <span style={{ fontSize: 9, color: "rgba(0,212,255,0.8)", textTransform: "uppercase", letterSpacing: "0.22em", flexShrink: 0 }}>
+              RIS
+            </span>
+            <ChevronRight size={10} style={{ color: "rgba(0,212,255,0.2)", flexShrink: 0 }} />
+          </>
+        )}
         <h1 style={{
-          fontSize: 13, fontWeight: 600,
+          fontSize: isMobile ? 12 : 13, fontWeight: 600,
           color: "#e2e8f0",
           letterSpacing: "0.02em",
           margin: 0,
@@ -44,7 +68,7 @@ export function Header({ title, subtitle }: HeaderProps) {
         }}>
           {title}
         </h1>
-        {subtitle && (
+        {subtitle && !isMobile && (
           <>
             <ChevronRight size={10} style={{ color: "rgba(0,212,255,0.15)", flexShrink: 0 }} />
             <span style={{
@@ -89,17 +113,19 @@ export function Header({ title, subtitle }: HeaderProps) {
           )}
         </button>
 
-        {/* Timestamp */}
-        <div style={{
-          fontSize: 9, color: "rgba(255,255,255,0.85)",
-          letterSpacing: "0.1em",
-          padding: "4px 8px",
-          background: "rgba(0,0,0,0.3)",
-          border: "1px solid rgba(255,255,255,0.04)",
-          borderRadius: 4,
-        }}>
-          {new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · {new Date().toLocaleDateString("es-CL", { day: "2-digit", month: "short" }).toUpperCase()}
-        </div>
+        {/* Timestamp (hidden on mobile) */}
+        {!isMobile && (
+          <div style={{
+            fontSize: 9, color: "rgba(255,255,255,0.85)",
+            letterSpacing: "0.1em",
+            padding: "4px 8px",
+            background: "rgba(0,0,0,0.3)",
+            border: "1px solid rgba(255,255,255,0.04)",
+            borderRadius: 4,
+          }}>
+            {new Date().toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })} · {new Date().toLocaleDateString("es-CL", { day: "2-digit", month: "short" }).toUpperCase()}
+          </div>
+        )}
       </div>
     </header>
   );
