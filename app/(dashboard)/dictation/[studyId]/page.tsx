@@ -261,14 +261,14 @@ function DictationContent() {
           {/* Grabación */}
           <PanelCard>
             <PanelHeader icon={Mic} label="Grabación de voz" />
-            <div style={{ padding: "20px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+            <div style={{ padding: isMobile ? "14px 12px" : "20px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: isMobile ? 10 : 14 }}>
               <VoiceRecorder onTranscript={handleTranscript} disabled={isProcessing} />
 
               <button
                 onClick={handleProcess}
                 disabled={isProcessing || !transcript.trim()}
                 style={{
-                  width: "100%", padding: "11px 16px",
+                  width: "100%", padding: isMobile ? "13px 16px" : "11px 16px",
                   background: isProcessing || !transcript.trim()
                     ? "rgba(16,185,129,0.03)"
                     : "rgba(16,185,129,0.1)",
@@ -276,7 +276,7 @@ function DictationContent() {
                   borderRadius: 6,
                   cursor: isProcessing || !transcript.trim() ? "not-allowed" : "pointer",
                   color: isProcessing || !transcript.trim() ? "rgba(16,185,129,0.35)" : C.green,
-                  fontSize: 11, fontWeight: 600, fontFamily: mono,
+                  fontSize: isMobile ? 12 : 11, fontWeight: 600, fontFamily: mono,
                   letterSpacing: "0.1em",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                   transition: "all 0.2s",
@@ -292,23 +292,23 @@ function DictationContent() {
           </PanelCard>
 
           {/* Transcripción */}
-          <PanelCard style={{ flex: 1, minHeight: 0 }}>
-            <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <PanelCard style={{ flex: isMobile ? undefined : 1, minHeight: isMobile ? 120 : 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", height: isMobile ? "auto" : "100%" }}>
               <TranscriptPanel transcript={transcript} isRecording={isRecording} />
             </div>
           </PanelCard>
         </div>
 
         {/* ── Col 2: Editor de Informe ── */}
-        <PanelCard style={{ minHeight: 0 }}>
+        <PanelCard style={{ minHeight: isMobile ? 200 : 0 }}>
           <PanelHeader
             icon={PenLine}
             label="Informe"
             right={
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 4 : 6, flexWrap: "wrap" as const, justifyContent: "flex-end" }}>
 
                 {/* Badge few-shot */}
-                {fb.fewshotCount > 0 && (
+                {fb.fewshotCount > 0 && !isMobile && (
                   <span
                     title={`${fb.fewshotCount} informe${fb.fewshotCount > 1 ? "s" : ""} similar${fb.fewshotCount > 1 ? "es" : ""} inyectados como referencia a Claude (similitud ${Math.round(fb.fewshotSimilarity * 100)}%)`}
                     style={{
@@ -361,8 +361,8 @@ function DictationContent() {
                     }}
                   >
                     {fb.isSaving
-                      ? <><Loader2 size={11} style={{ animation: "spin 0.7s linear infinite" }} /> Guardando...</>
-                      : <><PenLine size={11} /> Aprobar y firmar</>
+                      ? <><Loader2 size={11} style={{ animation: "spin 0.7s linear infinite" }} /> {isMobile ? "..." : "Guardando..."}</>
+                      : <><PenLine size={11} /> {isMobile ? "Aprobar" : "Aprobar y firmar"}</>
                     }
                   </button>
                 ) : currentReport?.status === "FIRMADO" ? (

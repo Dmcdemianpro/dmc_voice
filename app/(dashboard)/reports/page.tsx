@@ -388,7 +388,7 @@ export default function ReportsPage() {
         >
           <div style={{
             background: "#131720", border: "1px solid #2a3550", borderRadius: "10px",
-            width: "100%", maxWidth: "580px", maxHeight: "80vh",
+            width: isMobile ? "calc(100% - 32px)" : "100%", maxWidth: "580px", maxHeight: "80vh",
             boxShadow: "0 24px 60px rgba(0,0,0,0.6)", display: "flex", flexDirection: "column", overflow: "hidden",
           }}>
             <div style={{

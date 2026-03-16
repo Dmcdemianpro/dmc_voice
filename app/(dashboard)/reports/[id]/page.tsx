@@ -368,35 +368,43 @@ export default function ReportDetailPage() {
             {/* Panel header */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
-              padding: "10px 14px",
+              padding: isMobile ? "8px 10px" : "10px 14px",
               background: C.elevated, borderBottom: `1px solid ${C.border}`,
               flexShrink: 0,
+              flexWrap: isMobile ? "wrap" as const : "nowrap" as const,
             }}>
-              <PenLine size={13} style={{ color: C.cyan }} />
-              <span style={{ fontSize: 10, fontWeight: 600, color: C.sub, textTransform: "uppercase", letterSpacing: "0.16em" }}>
-                Texto del Informe
+              <PenLine size={13} style={{ color: C.cyan, flexShrink: 0 }} />
+              <span style={{ fontSize: 10, fontWeight: 600, color: C.sub, textTransform: "uppercase", letterSpacing: "0.16em", flexShrink: 0 }}>
+                {isMobile ? "Informe" : "Texto del Informe"}
               </span>
 
               {/* Action buttons (right side) */}
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" as const, justifyContent: "flex-end" }}>
+              <div style={{ marginLeft: "auto", display: "flex", gap: isMobile ? 4 : 6, flexWrap: "wrap" as const, justifyContent: "flex-end" }}>
 
-                {/* Re-dictate: BORRADOR */}
-                {currentReport.status === "BORRADOR" && currentReport.study_id && (
+                {/* Dictar / Re-dictate: BORRADOR */}
+                {currentReport.status === "BORRADOR" && (
                   <button
-                    onClick={() => router.push(`/dictation/${currentReport.study_id}?accession=${currentReport.accession_number || ""}`)}
+                    onClick={() => {
+                      const ac = currentReport.accession_number || "";
+                      if (currentReport.study_id) {
+                        router.push(`/dictation/${currentReport.study_id}?accession=${ac}`);
+                      } else {
+                        router.push(`/dictation/new?accession=${ac}`);
+                      }
+                    }}
                     style={{
                       display: "flex", alignItems: "center", gap: 5,
                       padding: "5px 11px",
-                      background: "rgba(148,163,184,0.06)",
-                      border: `1px solid ${C.border}`,
+                      background: "rgba(0,212,255,0.08)",
+                      border: "1px solid rgba(0,212,255,0.3)",
                       borderRadius: 5, cursor: "pointer",
-                      color: C.sub, fontSize: 10, fontWeight: 600,
+                      color: C.cyan, fontSize: 10, fontWeight: 600,
                       fontFamily: mono, letterSpacing: "0.1em",
                       textTransform: "uppercase", transition: "all 0.15s",
                     }}
-                    title="Volver a la página de dictado"
+                    title="Ir a la página de dictado por voz"
                   >
-                    <Mic size={11} /> Redictado
+                    <Mic size={11} /> Dictar
                   </button>
                 )}
 
@@ -406,20 +414,20 @@ export default function ReportDetailPage() {
                     onClick={handleSave}
                     disabled={saving}
                     style={{
-                      display: "flex", alignItems: "center", gap: 5,
-                      padding: "5px 11px",
+                      display: "flex", alignItems: "center", gap: isMobile ? 3 : 5,
+                      padding: isMobile ? "5px 8px" : "5px 11px",
                       background: "rgba(148,163,184,0.06)",
                       border: `1px solid ${C.border}`,
                       borderRadius: 5, cursor: saving ? "not-allowed" : "pointer",
-                      color: C.sub, fontSize: 10, fontWeight: 600,
+                      color: C.sub, fontSize: isMobile ? 9 : 10, fontWeight: 600,
                       fontFamily: mono, letterSpacing: "0.1em",
                       textTransform: "uppercase", transition: "all 0.15s",
                       opacity: saving ? 0.5 : 1,
                     }}
                   >
                     {saving
-                      ? <><Loader2 size={10} style={{ animation: "loginSpin 0.7s linear infinite" }} /> Guardando</>
-                      : <><Save size={10} /> Guardar</>
+                      ? <><Loader2 size={10} style={{ animation: "loginSpin 0.7s linear infinite" }} /></>
+                      : <><Save size={10} /> {!isMobile && "Guardar"}</>
                     }
                   </button>
                 )}
@@ -430,19 +438,19 @@ export default function ReportDetailPage() {
                     onClick={handleSign}
                     disabled={signing}
                     style={{
-                      display: "flex", alignItems: "center", gap: 5,
-                      padding: "5px 12px",
+                      display: "flex", alignItems: "center", gap: isMobile ? 3 : 5,
+                      padding: isMobile ? "5px 8px" : "5px 12px",
                       background: "rgba(16,185,129,0.1)",
                       border: "1px solid rgba(16,185,129,0.35)",
                       borderRadius: 5, cursor: signing ? "not-allowed" : "pointer",
-                      color: C.green, fontSize: 10, fontWeight: 600,
+                      color: C.green, fontSize: isMobile ? 9 : 10, fontWeight: 600,
                       fontFamily: mono, letterSpacing: "0.1em",
                       textTransform: "uppercase", transition: "all 0.15s",
                       opacity: signing ? 0.6 : 1,
                     }}
                   >
                     {signing
-                      ? <><Loader2 size={10} style={{ animation: "loginSpin 0.7s linear infinite" }} /> Aprobando</>
+                      ? <><Loader2 size={10} style={{ animation: "loginSpin 0.7s linear infinite" }} /></>
                       : <><PenLine size={10} /> Aprobar</>
                     }
                   </button>
@@ -665,7 +673,7 @@ export default function ReportDetailPage() {
             onClick={e => e.stopPropagation()}
             style={{
               background: C.surface, border: `1px solid ${C.border}`,
-              borderRadius: 10, padding: 20, width: 320, fontFamily: mono,
+              borderRadius: 10, padding: isMobile ? 16 : 20, width: isMobile ? "calc(100% - 32px)" : 320, maxWidth: 320, fontFamily: mono,
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 700, color: C.sub, textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 14 }}>
@@ -724,7 +732,7 @@ export default function ReportDetailPage() {
             onClick={e => e.stopPropagation()}
             style={{
               background: C.surface, border: "1px solid rgba(255,71,87,0.35)",
-              borderRadius: 10, padding: 24, width: 380, fontFamily: mono,
+              borderRadius: 10, padding: isMobile ? 16 : 24, width: isMobile ? "calc(100% - 32px)" : 380, maxWidth: 380, fontFamily: mono,
               boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
             }}
           >
@@ -815,7 +823,7 @@ export default function ReportDetailPage() {
             onClick={e => e.stopPropagation()}
             style={{
               background: C.surface, border: "1px solid rgba(0,212,255,0.25)",
-              borderRadius: 10, padding: 20, width: 420, maxHeight: "70vh",
+              borderRadius: 10, padding: isMobile ? 14 : 20, width: isMobile ? "calc(100% - 32px)" : 420, maxWidth: 420, maxHeight: "70vh",
               display: "flex", flexDirection: "column", fontFamily: mono,
               boxShadow: "0 24px 60px rgba(0,0,0,0.6)",
             }}
@@ -904,7 +912,7 @@ export default function ReportDetailPage() {
             onClick={e => e.stopPropagation()}
             style={{
               background: C.surface, border: "1px solid rgba(255,71,87,0.35)",
-              borderRadius: 10, padding: 24, width: 400, fontFamily: mono,
+              borderRadius: 10, padding: isMobile ? 16 : 24, width: isMobile ? "calc(100% - 32px)" : 400, maxWidth: 400, fontFamily: mono,
               boxShadow: "0 24px 60px rgba(0,0,0,0.65)",
             }}
           >
