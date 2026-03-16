@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Header } from "@/components/layout/Header";
 import { reportsApi, worklistApi } from "@/lib/api";
 import type { Report, WorklistItem } from "@/types/report.types";
 import { formatDate } from "@/lib/utils";
-import { FileText, AlertTriangle, ChevronLeft, ChevronRight, FilePlus, Plus, X, RefreshCw, Link2 } from "lucide-react";
-import { reportsCreateApi } from "@/lib/api";
+import { FileText, AlertTriangle, ChevronLeft, ChevronRight, FilePlus, Plus, X, Link2, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { useMobileCtx } from "../layout";
 
@@ -21,16 +21,25 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; 
   ENVIADO:     { label: "Enviado",     color: "#00d4ff",  bg: "rgba(0,212,255,0.08)",   border: "rgba(0,212,255,0.25)",   dot: "#00d4ff"  },
 };
 
+function generateAccessionNumber(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  const h = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const s = String(now.getSeconds()).padStart(2, "0");
+  return `INF-${y}${m}${d}-${h}${min}${s}`;
+}
+
 export default function ReportsPage() {
   const { isMobile, toggleMenu } = useMobileCtx();
+  const router = useRouter();
   const [data, setData] = useState<{ items: Report[]; total: number; page: number; per_page: number } | null>(null);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ accession_number: "", texto: "" });
-  const [saving, setSaving] = useState(false);
 
   // Link-patient modal state
   const [linkTarget, setLinkTarget] = useState<Report | null>(null);
@@ -38,24 +47,9 @@ export default function ReportsPage() {
   const [wlLoading, setWlLoading] = useState(false);
   const [linking, setLinking] = useState(false);
 
-  const handleCreate = async () => {
-    if (!form.texto.trim()) { toast.error("El contenido del informe es obligatorio"); return; }
-    setSaving(true);
-    try {
-      await reportsCreateApi.createManual({
-        accession_number: form.accession_number || undefined,
-        raw_transcript: form.texto,
-      });
-      toast.success("Informe creado como borrador");
-      setShowModal(false);
-      setForm({ accession_number: "", texto: "" });
-      setPage(1);
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.error(msg || "Error al crear el informe");
-    } finally {
-      setSaving(false);
-    }
+  const handleNewReport = () => {
+    const ac = generateAccessionNumber();
+    router.push(`/dictation/new?accession=${ac}`);
   };
 
   const openLinkModal = (e: React.MouseEvent, report: Report) => {
@@ -107,7 +101,7 @@ export default function ReportsPage() {
         <div style={{ display: "flex", alignItems: "center", marginBottom: "16px", gap: "8px" }}>
           <div style={{ flex: 1 }} />
           <button
-            onClick={() => setShowModal(true)}
+            onClick={handleNewReport}
             style={{
               display: "flex", alignItems: "center", gap: "6px",
               padding: "8px 14px", background: "rgba(0,212,255,0.1)",
@@ -118,8 +112,8 @@ export default function ReportsPage() {
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,212,255,0.18)"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(0,212,255,0.1)"; }}
           >
-            <Plus style={{ width: "13px", height: "13px" }} />
-            Nuevo Informe
+            <Mic style={{ width: "13px", height: "13px" }} />
+            {isMobile ? "Nuevo" : "Nuevo Informe"}
           </button>
         </div>
 
@@ -382,78 +376,6 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
-
-      {/* ── Modal: Nuevo Informe ── */}
-      {showModal && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 50,
-          background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center", padding: "24px",
-        }}
-          onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
-        >
-          <div style={{
-            background: "#131720", border: "1px solid #2a3550", borderRadius: "10px",
-            width: "100%", maxWidth: "560px",
-            boxShadow: "0 24px 60px rgba(0,0,0,0.6)", overflow: "hidden",
-          }}>
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "16px 20px", borderBottom: "1px solid #1e2535", background: "#0f1218",
-            }}>
-              <div>
-                <div style={{ fontSize: "14px", fontWeight: 600, color: "#e8edf2" }}>Nuevo Informe Manual</div>
-                <div style={{ fontSize: "11px", color: "#4a5878", fontFamily: "IBM Plex Mono, monospace", marginTop: "2px" }}>
-                  Se creará como BORRADOR sin procesamiento AI
-                </div>
-              </div>
-              <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", color: "#4a5878", cursor: "pointer" }}>
-                <X style={{ width: "16px", height: "16px" }} />
-              </button>
-            </div>
-
-            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div>
-                <label style={{ fontSize: "10px", fontFamily: "IBM Plex Mono, monospace", color: "#4a5878", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: "5px", display: "block" }}>
-                  N° Acceso (opcional)
-                </label>
-                <input
-                  style={{ width: "100%", background: "#0f1218", border: "1px solid #1e2535", borderRadius: "6px", padding: "8px 12px", fontSize: "12px", fontFamily: "IBM Plex Mono, monospace", color: "#e8edf2", outline: "none" }}
-                  placeholder="Ej: ACC-2024-001"
-                  value={form.accession_number}
-                  onChange={e => setForm(f => ({ ...f, accession_number: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: "10px", fontFamily: "IBM Plex Mono, monospace", color: "#4a5878", textTransform: "uppercase" as const, letterSpacing: "0.06em", marginBottom: "5px", display: "block" }}>
-                  Texto del Informe <span style={{ color: "#ff4757" }}>*</span>
-                </label>
-                <textarea
-                  rows={8}
-                  style={{ width: "100%", background: "#0f1218", border: "1px solid #1e2535", borderRadius: "6px", padding: "10px 12px", fontSize: "12px", fontFamily: "IBM Plex Sans, sans-serif", color: "#e8edf2", outline: "none", resize: "vertical", lineHeight: 1.6 }}
-                  placeholder="Escriba el contenido del informe radiológico..."
-                  value={form.texto}
-                  onChange={e => setForm(f => ({ ...f, texto: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div style={{ padding: "14px 20px", borderTop: "1px solid #1e2535", display: "flex", gap: "10px", justifyContent: "flex-end", background: "#0f1218" }}>
-              <button onClick={() => setShowModal(false)}
-                style={{ padding: "8px 16px", background: "transparent", border: "1px solid #1e2535", borderRadius: "6px", color: "#8a9ab8", fontSize: "12px", fontFamily: "IBM Plex Mono, monospace", cursor: "pointer" }}>
-                Cancelar
-              </button>
-              <button onClick={handleCreate} disabled={saving}
-                style={{ padding: "8px 20px", background: saving ? "rgba(0,212,255,0.06)" : "rgba(0,212,255,0.12)", border: "1px solid rgba(0,212,255,0.35)", borderRadius: "6px", color: "#00d4ff", fontSize: "12px", fontFamily: "IBM Plex Mono, monospace", fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
-                {saving
-                  ? <><RefreshCw style={{ width: "12px", height: "12px", animation: "spin 1s linear infinite" }} /> Guardando...</>
-                  : <><Plus style={{ width: "12px", height: "12px" }} /> Crear Informe</>
-                }
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Modal: Vincular Paciente ── */}
       {linkTarget && (
