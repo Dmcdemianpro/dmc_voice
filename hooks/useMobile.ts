@@ -6,11 +6,12 @@ const MOBILE_BREAKPOINT = 768;
 const TABLET_BREAKPOINT = 1024;
 
 export function useMobile() {
-  const [width, setWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 1200
-  );
+  // Always start with desktop defaults to match SSR (avoids hydration mismatch)
+  const [width, setWidth] = useState(1200);
 
   useEffect(() => {
+    // Set real width immediately on mount
+    setWidth(window.innerWidth);
     const onResize = () => setWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
