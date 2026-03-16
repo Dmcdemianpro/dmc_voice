@@ -182,7 +182,7 @@ export default function DashboardPage() {
           marginBottom: 24,
         }}>
           <div>
-            <div style={{ fontSize: 9, color: "rgba(0,212,255,0.5)", textTransform: "uppercase", letterSpacing: "0.22em", marginBottom: 4 }}>
+            <div style={{ fontSize: 9, color: "rgba(0,212,255,0.85)", textTransform: "uppercase", letterSpacing: "0.22em", marginBottom: 4 }}>
               Panel de control
             </div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: "#f1f5f9", margin: 0, letterSpacing: "-0.02em" }}>
@@ -245,7 +245,7 @@ export default function DashboardPage() {
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", position: "relative" }}>
                 <div>
                   <div style={{
-                    fontSize: 8.5, color: "rgba(148,163,184,0.6)",
+                    fontSize: 8.5, color: "rgba(148,163,184,0.9)",
                     textTransform: "uppercase", letterSpacing: "0.18em",
                     marginBottom: 10,
                   }}>
@@ -335,7 +335,7 @@ export default function DashboardPage() {
               ) : alerts.length === 0 ? (
                 <div style={{ padding: "32px 18px", textAlign: "center" }}>
                   <CheckCircle size={20} style={{ color: "rgba(46,213,115,0.3)", marginBottom: 8 }} />
-                  <div style={{ fontSize: 11, color: "rgba(148,163,184,0.4)", letterSpacing: "0.05em" }}>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.05em" }}>
                     Sin alertas críticas
                   </div>
                 </div>
@@ -366,7 +366,7 @@ export default function DashboardPage() {
                     }}>
                       {a.alert_desc || "Alerta sin descripción"}
                     </div>
-                    <div style={{ fontSize: 9.5, color: "rgba(148,163,184,0.5)", letterSpacing: "0.05em" }}>
+                    <div style={{ fontSize: 9.5, color: "rgba(148,163,184,0.8)", letterSpacing: "0.05em" }}>
                       {a.modalidad} · {formatRelative(a.created_at)}
                     </div>
                   </div>
@@ -419,7 +419,7 @@ export default function DashboardPage() {
               ) : recentReports.length === 0 ? (
                 <div style={{ padding: "32px 18px", textAlign: "center" }}>
                   <Clock size={20} style={{ color: "rgba(0,212,255,0.2)", marginBottom: 8 }} />
-                  <div style={{ fontSize: 11, color: "rgba(148,163,184,0.4)", letterSpacing: "0.05em" }}>
+                  <div style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", letterSpacing: "0.05em" }}>
                     Sin informes recientes
                   </div>
                 </div>
@@ -443,7 +443,7 @@ export default function DashboardPage() {
                       }}>
                         {r.modalidad || "Estudio"} — {r.region_anatomica || "—"}
                       </div>
-                      <div style={{ fontSize: 9.5, color: "rgba(148,163,184,0.5)", letterSpacing: "0.05em", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 9.5, color: "rgba(148,163,184,0.8)", letterSpacing: "0.05em", display: "flex", gap: 8, flexWrap: "wrap" }}>
                         <span>{formatRelative(r.created_at)}</span>
                         {r.assigned_to_name && (
                           <span style={{ color: "rgba(245,158,11,0.5)" }}>→ {r.assigned_to_name}</span>
@@ -479,10 +479,10 @@ export default function DashboardPage() {
           borderTop: "1px solid rgba(0,212,255,0.05)",
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
-          <span style={{ fontSize: 9, color: "rgba(71,85,105,0.4)", letterSpacing: "0.1em" }}>
+          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
             RIS Voice.AI · v1.0 · DMC Projects
           </span>
-          <span style={{ fontSize: 9, color: "rgba(71,85,105,0.4)", letterSpacing: "0.1em" }}>
+          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em" }}>
             Ley 19.628 · Protección datos personales
           </span>
         </div>

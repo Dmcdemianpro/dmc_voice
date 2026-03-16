@@ -31,7 +31,7 @@ export function Header({ title, subtitle }: HeaderProps) {
     }}>
       {/* Breadcrumb / title */}
       <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <span style={{ fontSize: 9, color: "rgba(0,212,255,0.4)", textTransform: "uppercase", letterSpacing: "0.22em", flexShrink: 0 }}>
+        <span style={{ fontSize: 9, color: "rgba(0,212,255,0.8)", textTransform: "uppercase", letterSpacing: "0.22em", flexShrink: 0 }}>
           RIS
         </span>
         <ChevronRight size={10} style={{ color: "rgba(0,212,255,0.2)", flexShrink: 0 }} />
@@ -48,7 +48,7 @@ export function Header({ title, subtitle }: HeaderProps) {
           <>
             <ChevronRight size={10} style={{ color: "rgba(0,212,255,0.15)", flexShrink: 0 }} />
             <span style={{
-              fontSize: 11, color: "rgba(148,163,184,0.5)",
+              fontSize: 11, color: "rgba(148,163,184,0.85)",
               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
             }}>
               {subtitle}
@@ -91,7 +91,7 @@ export function Header({ title, subtitle }: HeaderProps) {
 
         {/* Timestamp */}
         <div style={{
-          fontSize: 9, color: "rgba(71,85,105,0.5)",
+          fontSize: 9, color: "rgba(255,255,255,0.85)",
           letterSpacing: "0.1em",
           padding: "4px 8px",
           background: "rgba(0,0,0,0.3)",

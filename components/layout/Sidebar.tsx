@@ -178,7 +178,7 @@ export function Sidebar() {
         {/* Sección: Sistema */}
         <div style={{ marginBottom: 4 }}>
           <div style={{
-            fontSize: "8.5px", color: "rgba(71,85,105,0.7)",
+            fontSize: "8.5px", color: "rgba(148,163,184,0.65)",
             textTransform: "uppercase", letterSpacing: "0.2em",
             padding: "4px 8px 6px",
           }}>
@@ -199,7 +199,7 @@ export function Sidebar() {
         {showAdminSection && (
           <div>
             <div style={{
-              fontSize: "8.5px", color: "rgba(71,85,105,0.7)",
+              fontSize: "8.5px", color: "rgba(148,163,184,0.65)",
               textTransform: "uppercase", letterSpacing: "0.2em",
               padding: "8px 8px 6px",
               borderTop: "1px solid rgba(255,255,255,0.04)",
@@ -232,13 +232,13 @@ export function Sidebar() {
               width: 5, height: 5, borderRadius: "50%",
               background: "#10b981", boxShadow: "0 0 5px #10b981", flexShrink: 0,
             }} />
-            <span style={{ fontSize: 9, color: "rgba(71,85,105,0.8)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            <span style={{ fontSize: 9, color: "rgba(148,163,184,0.85)", letterSpacing: "0.12em", textTransform: "uppercase" }}>
               Sistema Activo
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Activity size={9} style={{ color: "rgba(0,212,255,0.35)", flexShrink: 0 }} />
-            <span style={{ fontSize: 9, color: "rgba(71,85,105,0.6)", letterSpacing: "0.08em" }}>
+            <span style={{ fontSize: 9, color: "rgba(0,212,255,0.6)", letterSpacing: "0.08em" }}>
               BD Online · TLS 1.3
             </span>
           </div>
@@ -263,7 +263,7 @@ export function Sidebar() {
             <div style={{ fontSize: 11, fontWeight: 500, color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {user?.full_name}
             </div>
-            <div style={{ fontSize: 9, color: "rgba(148,163,184,0.45)", letterSpacing: "0.08em" }}>
+            <div style={{ fontSize: 9, color: "rgba(148,163,184,0.75)", letterSpacing: "0.08em" }}>
               {user?.institution || user?.rut}
             </div>
           </div>
