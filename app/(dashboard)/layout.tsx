@@ -20,7 +20,7 @@ const MobileContext = createContext<MobileCtx>({
 export const useMobileCtx = () => useContext(MobileContext);
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, _hasHydrated } = useAuthStore();
   const router   = useRouter();
   const pathname = usePathname();
   const { isMobile, isTablet, isDesktop } = useMobile();
@@ -32,6 +32,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   useEffect(() => {
+    // Esperar a que zustand rehidrate desde localStorage antes de decidir
+    if (!_hasHydrated) return;
+
     // 1. No autenticado → login
     if (!isAuthenticated) {
       router.replace("/login");
@@ -43,8 +46,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (role && !canAccessRoute(role, pathname)) {
       router.replace(defaultRoute(role));
     }
-  }, [isAuthenticated, user, pathname, router]);
+  }, [_hasHydrated, isAuthenticated, user, pathname, router]);
 
+  // Mientras zustand rehidrata, no renderizar nada (evita flash + redirect prematuro)
+  if (!_hasHydrated) return null;
   if (!isAuthenticated) return null;
 
   // Mientras el rol no cargue, no renderizar nada (evita flash de contenido)

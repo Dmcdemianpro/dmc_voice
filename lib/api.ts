@@ -52,6 +52,7 @@ api.interceptors.response.use(
         queue = [];
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        localStorage.removeItem("ris-auth"); // Clear zustand persist data too
         if (typeof window !== "undefined") window.location.href = "/login";
         return Promise.reject(e);
       } finally {
