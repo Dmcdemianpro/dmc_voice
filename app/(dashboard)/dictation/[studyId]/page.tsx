@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { useCallback, useRef, Suspense, useState, useEffect } from "react";
 import { VoiceRecorder } from "@/components/dictation/VoiceRecorder";
 import { TranscriptPanel } from "@/components/dictation/TranscriptPanel";
@@ -9,9 +9,10 @@ import { AlertBanner } from "@/components/dictation/AlertBanner";
 import { DiffViewer } from "@/components/dictation/DiffViewer";
 import { useReportStore } from "@/store/reportStore";
 import { useFeedbackCapture } from "@/hooks/useFeedbackCapture";
-import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu, Save } from "lucide-react";
+import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu, Save, X } from "lucide-react";
 import Link from "next/link";
 import { useMobileCtx } from "../../layout";
+import { normalizeTranscript } from "@/lib/normalizeTranscript";
 
 const mono = "var(--font-ibm-plex-mono), monospace";
 
@@ -72,6 +73,7 @@ function PanelHeader({ icon: Icon, label, right }: {
 function DictationContent() {
   const params = useParams<{ studyId: string }>();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { isMobile, toggleMenu } = useMobileCtx();
   const {
     transcript, isProcessing, isRecording,
@@ -114,12 +116,14 @@ function DictationContent() {
 
   // Live transcript → editor: mientras no hay informe generado, el dictado
   // fluye directamente al editor para que el radiólogo pueda corregir en vivo.
+  // Los comandos verbales (coma, punto, nueva línea, etc.) se normalizan en tiempo real.
   const handleTranscript = useCallback((text: string) => {
-    setTranscript(text);
+    const normalized = normalizeTranscript(text);
+    setTranscript(normalized);
     if (!currentReport) {
-      editorTextRef.current = text;
-      setDraftText(text);
-      setEditorHasText(!!text.trim());
+      editorTextRef.current = normalized;
+      setDraftText(normalized);
+      setEditorHasText(!!normalized.trim());
     }
   }, [setTranscript, currentReport]);
 
@@ -136,6 +140,14 @@ function DictationContent() {
     fb.onTextChange(text);
     updateReportText(text);
   }, [fb, updateReportText]);
+
+  const handleCancel = useCallback(() => {
+    if (currentReport) {
+      alert("Este informe no se eliminará. Puede encontrarlo en la sección Informes.");
+    }
+    reset();
+    router.push("/reports");
+  }, [currentReport, reset, router]);
 
   const handleSave = useCallback(async () => {
     const text = editorTextRef.current;
@@ -397,6 +409,23 @@ function DictationContent() {
                     Diff
                   </button>
                 )}
+
+                {/* Botón Cancelar */}
+                <button
+                  onClick={handleCancel}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5,
+                    padding: "5px 12px",
+                    background: "rgba(255,71,87,0.06)",
+                    border: "1px solid rgba(255,71,87,0.25)",
+                    borderRadius: 5, cursor: "pointer",
+                    color: C.red, fontSize: 10, fontWeight: 600,
+                    fontFamily: mono, letterSpacing: "0.1em",
+                    textTransform: "uppercase" as const, transition: "all 0.2s",
+                  }}
+                >
+                  <X size={11} /> {isMobile ? "" : "Cancelar"}
+                </button>
 
                 {/* Botón Guardar — siempre visible cuando no hay reporte o es borrador */}
                 {(!currentReport || currentReport.status === "BORRADOR") && (
