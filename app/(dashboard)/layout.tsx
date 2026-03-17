@@ -75,11 +75,15 @@ class DashboardErrorBoundary extends React.Component<
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user, _hasHydrated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const router   = useRouter();
   const pathname = usePathname();
   const { isMobile, isTablet, isDesktop } = useMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Esperar al mount del cliente (zustand persist ya rehidrató de localStorage)
+  useEffect(() => { setMounted(true); }, []);
 
   // Cerrar menú al cambiar de ruta
   useEffect(() => {
@@ -87,8 +91,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [pathname]);
 
   useEffect(() => {
-    // Esperar a que zustand rehidrate desde localStorage antes de decidir
-    if (!_hasHydrated) return;
+    if (!mounted) return;
 
     // 1. No autenticado → login
     if (!isAuthenticated) {
@@ -101,10 +104,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (role && !canAccessRoute(role, pathname)) {
       router.replace(defaultRoute(role));
     }
-  }, [_hasHydrated, isAuthenticated, user, pathname, router]);
+  }, [mounted, isAuthenticated, user, pathname, router]);
 
-  // Mientras zustand rehidrata, no renderizar nada (evita flash + redirect prematuro)
-  if (!_hasHydrated) return null;
+  // Antes del mount, no renderizar (evita redirect prematuro por SSR)
+  if (!mounted) return null;
   if (!isAuthenticated) return null;
 
   // Mientras el rol no cargue, no renderizar nada (evita flash de contenido)
