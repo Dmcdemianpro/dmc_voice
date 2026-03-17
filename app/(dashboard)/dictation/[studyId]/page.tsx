@@ -9,7 +9,7 @@ import { AlertBanner } from "@/components/dictation/AlertBanner";
 import { DiffViewer } from "@/components/dictation/DiffViewer";
 import { useReportStore } from "@/store/reportStore";
 import { useFeedbackCapture } from "@/hooks/useFeedbackCapture";
-import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu, Save, X } from "lucide-react";
+import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu, Save, X, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { useMobileCtx } from "../../layout";
 import { normalizeTranscript } from "@/lib/normalizeTranscript";
@@ -113,6 +113,7 @@ function DictationContent() {
   const [editorHasText, setEditorHasText] = useState(false);
   const [warningsOpen, setWarningsOpen] = useState(true);
   const [diffOpen, setDiffOpen] = useState(false);
+  const [cmdHelpOpen, setCmdHelpOpen] = useState(false);
 
   // Live transcript → editor: mientras no hay informe generado, el dictado
   // fluye directamente al editor para que el radiólogo pueda corregir en vivo.
@@ -363,6 +364,61 @@ function DictationContent() {
               <TranscriptPanel transcript={transcript} isRecording={isRecording} />
             </div>
           </PanelCard>
+
+          {/* Comandos de voz — colapsable */}
+          <div style={{
+            borderRadius: 6, overflow: "hidden",
+            border: `1px solid ${cmdHelpOpen ? "rgba(0,212,255,0.18)" : "rgba(148,163,184,0.12)"}`,
+            background: cmdHelpOpen ? C.surface : "transparent",
+            transition: "all 0.2s",
+          }}>
+            <button
+              onClick={() => setCmdHelpOpen(o => !o)}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 6,
+                padding: "7px 10px", background: "transparent", border: "none", cursor: "pointer",
+                color: cmdHelpOpen ? C.cyan : C.muted, fontFamily: mono, fontSize: 9.5,
+                fontWeight: 600, letterSpacing: "0.1em",
+                transition: "color 0.15s",
+              }}
+            >
+              <HelpCircle size={11} style={{ flexShrink: 0 }} />
+              <span style={{ flex: 1, textAlign: "left" }}>Comandos de voz</span>
+              <ChevronDown size={10} style={{
+                transform: cmdHelpOpen ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.2s",
+              }} />
+            </button>
+            {cmdHelpOpen && (
+              <div style={{
+                padding: "0 10px 10px",
+                display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 12px",
+                fontSize: 9.5, fontFamily: mono, lineHeight: 1.7,
+              }}>
+                {[
+                  ["punto", "."],
+                  ["coma", ","],
+                  ["dos puntos", ":"],
+                  ["punto y coma", ";"],
+                  ["nueva línea", "↵"],
+                  ["nuevo párrafo", "↵↵"],
+                  ["interrogación", "?"],
+                  ["exclamación", "!"],
+                  ["guión", "-"],
+                  ["puntos suspensivos", "..."],
+                  ["abre paréntesis", "("],
+                  ["cierra paréntesis", ")"],
+                  ["espacio", "␣"],
+                  ["arroba", "@"],
+                ].map(([cmd, sym]) => (
+                  <div key={cmd} style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
+                    <span style={{ color: C.sub }}>{cmd}</span>
+                    <span style={{ color: C.cyan, fontWeight: 700 }}>{sym}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Col 2: Editor de Informe ── */}
