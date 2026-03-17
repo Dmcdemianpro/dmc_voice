@@ -9,7 +9,7 @@ import { AlertBanner } from "@/components/dictation/AlertBanner";
 import { DiffViewer } from "@/components/dictation/DiffViewer";
 import { useReportStore } from "@/store/reportStore";
 import { useFeedbackCapture } from "@/hooks/useFeedbackCapture";
-import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu } from "lucide-react";
+import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu, Save } from "lucide-react";
 import Link from "next/link";
 import { useMobileCtx } from "../../layout";
 
@@ -77,7 +77,8 @@ function DictationContent() {
     transcript, isProcessing, isRecording,
     currentReport, claudeResult,
     setTranscript, processTranscript,
-    updateReportText, signReport, sendToRis, generatePdf,
+    updateReportText, saveReport, createManualReport,
+    signReport, sendToRis, generatePdf,
   } = useReportStore();
 
   const studyId = params.studyId !== "new" ? params.studyId : undefined;
@@ -95,6 +96,7 @@ function DictationContent() {
   });
 
   const editorTextRef = useRef<string>(currentReport?.texto_final ?? "");
+  const [editorHasText, setEditorHasText] = useState(false);
   const [warningsOpen, setWarningsOpen] = useState(true);
   const [diffOpen, setDiffOpen] = useState(false);
 
@@ -117,9 +119,20 @@ function DictationContent() {
 
   const handleEditorChange = useCallback((text: string) => {
     editorTextRef.current = text;
+    setEditorHasText(!!text.trim());
     fb.onTextChange(text);
     updateReportText(text);
   }, [fb, updateReportText]);
+
+  const handleSave = useCallback(async () => {
+    const text = editorTextRef.current;
+    if (!text.trim()) return;
+    if (currentReport) {
+      await saveReport(text);
+    } else {
+      await createManualReport(text, studyId, accessionNumber);
+    }
+  }, [currentReport, saveReport, createManualReport, studyId, accessionNumber]);
 
   const handleSign = useCallback(async () => {
     await fb.onSign(editorTextRef.current || currentReport?.texto_final || "");
@@ -264,30 +277,34 @@ function DictationContent() {
             <div style={{ padding: isMobile ? "14px 12px" : "20px 16px", display: "flex", flexDirection: "column", alignItems: "center", gap: isMobile ? 10 : 14 }}>
               <VoiceRecorder onTranscript={handleTranscript} disabled={isProcessing} />
 
-              <button
-                onClick={handleProcess}
-                disabled={isProcessing || !transcript.trim()}
-                style={{
-                  width: "100%", padding: isMobile ? "13px 16px" : "11px 16px",
-                  background: isProcessing || !transcript.trim()
-                    ? "rgba(16,185,129,0.03)"
-                    : "rgba(16,185,129,0.1)",
-                  border: `1px solid ${isProcessing || !transcript.trim() ? "rgba(16,185,129,0.12)" : "rgba(16,185,129,0.4)"}`,
-                  borderRadius: 6,
-                  cursor: isProcessing || !transcript.trim() ? "not-allowed" : "pointer",
-                  color: isProcessing || !transcript.trim() ? "rgba(16,185,129,0.35)" : C.green,
-                  fontSize: isMobile ? 12 : 11, fontWeight: 600, fontFamily: mono,
-                  letterSpacing: "0.1em",
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  transition: "all 0.2s",
-                }}
-              >
-                {isProcessing ? (
-                  <><Loader2 size={12} style={{ animation: "spin 0.7s linear infinite" }} /> Generando informe...</>
-                ) : (
-                  <><CheckCircle size={12} /> Generar informe</>
-                )}
-              </button>
+              {(() => {
+                const hasContent = !!(transcript.trim() || editorHasText);
+                const disabled = isProcessing || !hasContent;
+                return (
+                  <button
+                    onClick={handleProcess}
+                    disabled={disabled}
+                    style={{
+                      width: "100%", padding: isMobile ? "13px 16px" : "11px 16px",
+                      background: disabled ? "rgba(16,185,129,0.03)" : "rgba(16,185,129,0.1)",
+                      border: `1px solid ${disabled ? "rgba(16,185,129,0.12)" : "rgba(16,185,129,0.4)"}`,
+                      borderRadius: 6,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      color: disabled ? "rgba(16,185,129,0.35)" : C.green,
+                      fontSize: isMobile ? 12 : 11, fontWeight: 600, fontFamily: mono,
+                      letterSpacing: "0.1em",
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {isProcessing ? (
+                      <><Loader2 size={12} style={{ animation: "spin 0.7s linear infinite" }} /> Generando informe...</>
+                    ) : (
+                      <><CheckCircle size={12} /> Generar informe</>
+                    )}
+                  </button>
+                );
+              })()}
             </div>
           </PanelCard>
 
@@ -341,6 +358,26 @@ function DictationContent() {
                   >
                     <GitCompare size={9} />
                     Diff
+                  </button>
+                )}
+
+                {/* Botón Guardar — visible cuando hay texto y (no hay reporte o es borrador) */}
+                {(!currentReport || currentReport.status === "BORRADOR") && editorHasText && (
+                  <button
+                    onClick={handleSave}
+                    disabled={isProcessing}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "5px 12px",
+                      background: "rgba(0,212,255,0.08)",
+                      border: "1px solid rgba(0,212,255,0.3)",
+                      borderRadius: 5, cursor: isProcessing ? "not-allowed" : "pointer",
+                      color: C.cyan, fontSize: 10, fontWeight: 600,
+                      fontFamily: mono, letterSpacing: "0.1em",
+                      textTransform: "uppercase" as const, transition: "all 0.2s",
+                    }}
+                  >
+                    <Save size={11} /> Guardar
                   </button>
                 )}
 

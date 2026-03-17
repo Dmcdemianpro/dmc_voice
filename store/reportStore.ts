@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { Report, ClaudeResponse } from "@/types/report.types";
-import { dictationApi, reportsApi } from "@/lib/api";
+import { dictationApi, reportsApi, reportsCreateApi } from "@/lib/api";
 import { toast } from "sonner";
 
 interface ReportState {
@@ -15,6 +15,8 @@ interface ReportState {
   setRecording: (v: boolean) => void;
   processTranscript: (studyId?: string, accessionNumber?: string, fewshotExamples?: unknown[], overrideText?: string) => Promise<void>;
   updateReportText: (text: string) => void;
+  saveReport: (text: string) => Promise<void>;
+  createManualReport: (text: string, studyId?: string, accessionNumber?: string) => Promise<void>;
   signReport: () => Promise<void>;
   sendToRis: () => Promise<void>;
   generatePdf: () => Promise<void>;
@@ -64,6 +66,35 @@ export const useReportStore = create<ReportState>()((set, get) => ({
   updateReportText: (text) => {
     // Update local state only — saves happen explicitly via Guardar button
     set((s) => s.currentReport ? { currentReport: { ...s.currentReport, texto_final: text } } : {});
+  },
+
+  saveReport: async (text) => {
+    const { currentReport } = get();
+    if (!currentReport) return;
+    const { data } = await reportsApi.update(currentReport.id, { texto_final: text });
+    set({ currentReport: data });
+    toast.success("Informe guardado");
+  },
+
+  createManualReport: async (text, studyId, accessionNumber) => {
+    if (!text.trim()) {
+      toast.error("No hay texto para guardar");
+      return;
+    }
+    set({ isProcessing: true });
+    try {
+      const { data } = await reportsCreateApi.createManual({
+        raw_transcript: text,
+        study_id: studyId,
+        accession_number: accessionNumber,
+      });
+      set({ currentReport: data, claudeResult: data.claude_json });
+      toast.success("Informe creado correctamente");
+    } catch {
+      toast.error("Error al crear el informe");
+    } finally {
+      set({ isProcessing: false });
+    }
   },
 
   signReport: async () => {
