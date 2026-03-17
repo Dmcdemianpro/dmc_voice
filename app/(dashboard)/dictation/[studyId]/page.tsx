@@ -311,11 +311,35 @@ function DictationContent() {
                     {isProcessing ? (
                       <><Loader2 size={12} style={{ animation: "spin 0.7s linear infinite" }} /> Generando informe...</>
                     ) : (
-                      <><CheckCircle size={12} /> Generar informe</>
+                      <><CheckCircle size={12} /> Generar informe (IA)</>
                     )}
                   </button>
                 );
               })()}
+
+              {/* Botón guardar borrador — sin procesar con IA */}
+              {!currentReport && (
+                <button
+                  onClick={handleSave}
+                  disabled={isProcessing || !editorHasText}
+                  style={{
+                    width: "100%", padding: isMobile ? "13px 16px" : "11px 16px",
+                    background: !editorHasText || isProcessing
+                      ? "rgba(0,212,255,0.03)"
+                      : "rgba(0,212,255,0.1)",
+                    border: `1px solid ${!editorHasText || isProcessing ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.4)"}`,
+                    borderRadius: 6,
+                    cursor: !editorHasText || isProcessing ? "not-allowed" : "pointer",
+                    color: !editorHasText || isProcessing ? "rgba(0,212,255,0.35)" : C.cyan,
+                    fontSize: isMobile ? 12 : 11, fontWeight: 600, fontFamily: mono,
+                    letterSpacing: "0.1em",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  <Save size={12} /> Guardar borrador
+                </button>
+              )}
             </div>
           </PanelCard>
 
@@ -372,18 +396,20 @@ function DictationContent() {
                   </button>
                 )}
 
-                {/* Botón Guardar — visible cuando hay texto y (no hay reporte o es borrador) */}
-                {(!currentReport || currentReport.status === "BORRADOR") && editorHasText && (
+                {/* Botón Guardar — siempre visible cuando no hay reporte o es borrador */}
+                {(!currentReport || currentReport.status === "BORRADOR") && (
                   <button
                     onClick={handleSave}
-                    disabled={isProcessing}
+                    disabled={isProcessing || !editorHasText}
                     style={{
                       display: "flex", alignItems: "center", gap: 5,
                       padding: "5px 12px",
-                      background: "rgba(0,212,255,0.08)",
-                      border: "1px solid rgba(0,212,255,0.3)",
-                      borderRadius: 5, cursor: isProcessing ? "not-allowed" : "pointer",
-                      color: C.cyan, fontSize: 10, fontWeight: 600,
+                      background: !editorHasText ? "rgba(0,212,255,0.03)" : "rgba(0,212,255,0.08)",
+                      border: `1px solid ${!editorHasText ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.3)"}`,
+                      borderRadius: 5,
+                      cursor: isProcessing || !editorHasText ? "not-allowed" : "pointer",
+                      color: !editorHasText ? "rgba(0,212,255,0.35)" : C.cyan,
+                      fontSize: 10, fontWeight: 600,
                       fontFamily: mono, letterSpacing: "0.1em",
                       textTransform: "uppercase" as const, transition: "all 0.2s",
                     }}

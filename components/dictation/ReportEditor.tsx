@@ -133,7 +133,7 @@ export function ReportEditor({ content, onChange, readOnly = false }: ReportEdit
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: "El informe aparecerá aquí tras procesar el dictado…" }),
+      Placeholder.configure({ placeholder: "Escribe o dicta tu informe aquí…" }),
       Underline,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       TextStyle,
