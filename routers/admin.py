@@ -98,7 +98,11 @@ async def update_user(
         user.institution = body.institution
     if body.is_active is not None:
         user.is_active = body.is_active
+    if body.password is not None and body.password.strip():
+        user.hashed_pw = pwd_context.hash(body.password.strip())
 
+    await db.commit()
+    await db.refresh(user)
     await log_action(db, current_user.id, "UPDATE_USER", detail={"target_user": user_id})
     return UserOut.model_validate(user)
 

@@ -40,6 +40,7 @@ class UserUpdate(BaseModel):
     institution: Optional[str] = None
     firma_url: Optional[str] = None
     is_active: Optional[bool] = None
+    password: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
