@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { useCallback, useRef, Suspense, useState } from "react";
+import { useCallback, useRef, Suspense, useState, useEffect } from "react";
 import { VoiceRecorder } from "@/components/dictation/VoiceRecorder";
 import { TranscriptPanel } from "@/components/dictation/TranscriptPanel";
 import { ReportEditor } from "@/components/dictation/ReportEditor";
@@ -79,9 +79,20 @@ function DictationContent() {
     setTranscript, processTranscript,
     updateReportText, saveReport, createManualReport,
     signReport, sendToRis, generatePdf,
+    reset, loadReport,
   } = useReportStore();
 
   const studyId = params.studyId !== "new" ? params.studyId : undefined;
+
+  // Reset store when entering a new dictation; load existing report if studyId is set
+  useEffect(() => {
+    if (params.studyId === "new") {
+      reset();
+    } else if (params.studyId) {
+      loadReport(params.studyId).catch(() => { /* report may not exist yet */ });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.studyId]);
   const accessionNumber = searchParams.get("accession") ?? undefined;
   const patientName = searchParams.get("patient") ?? undefined;
   const modalidad = searchParams.get("modalidad") ?? undefined;
