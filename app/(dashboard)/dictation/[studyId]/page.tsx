@@ -107,6 +107,7 @@ function DictationContent() {
   });
 
   const editorTextRef = useRef<string>(currentReport?.texto_final ?? "");
+  const [draftText, setDraftText] = useState("");
   const [editorHasText, setEditorHasText] = useState(false);
   const [warningsOpen, setWarningsOpen] = useState(true);
   const [diffOpen, setDiffOpen] = useState(false);
@@ -117,9 +118,10 @@ function DictationContent() {
     setTranscript(text);
     if (!currentReport) {
       editorTextRef.current = text;
-      updateReportText(text);
+      setDraftText(text);
+      setEditorHasText(!!text.trim());
     }
-  }, [setTranscript, updateReportText, currentReport]);
+  }, [setTranscript, currentReport]);
 
   // Usa el contenido del editor (posiblemente editado) como input para Claude
   const handleProcess = useCallback(async () => {
@@ -528,7 +530,7 @@ function DictationContent() {
           <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
             <ReportEditor
               key={currentReport?.id || "empty"}
-              content={currentReport?.texto_final || ""}
+              content={currentReport?.texto_final || draftText}
               onChange={handleEditorChange}
               readOnly={currentReport?.status === "FIRMADO" || currentReport?.status === "ENVIADO"}
             />
