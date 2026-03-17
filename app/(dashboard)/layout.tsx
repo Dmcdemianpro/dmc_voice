@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, createContext, useContext } from "react";
+import React, { useEffect, useState, createContext, useContext } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -18,6 +18,61 @@ const MobileContext = createContext<MobileCtx>({
   isMobile: false, isTablet: false, isDesktop: true, toggleMenu: () => {},
 });
 export const useMobileCtx = () => useContext(MobileContext);
+
+// ── Error Boundary para capturar crashes del dashboard ──────────────────────
+class DashboardErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{
+          padding: 24, fontFamily: "monospace", background: "#0d111a",
+          color: "#ff4757", minHeight: "100vh",
+        }}>
+          <h2 style={{ color: "#ff4757", fontSize: 16, marginBottom: 12 }}>
+            Error en Dashboard
+          </h2>
+          <pre style={{
+            background: "#131720", border: "1px solid #2a3550",
+            borderRadius: 8, padding: 16, fontSize: 12,
+            whiteSpace: "pre-wrap", wordBreak: "break-all",
+            color: "#f59e0b", maxHeight: 300, overflow: "auto",
+          }}>
+            {this.state.error.message}
+            {"\n\n"}
+            {this.state.error.stack}
+          </pre>
+          <button
+            onClick={() => {
+              localStorage.removeItem("ris-auth");
+              localStorage.removeItem("access_token");
+              localStorage.removeItem("refresh_token");
+              window.location.href = "/login";
+            }}
+            style={{
+              marginTop: 16, padding: "10px 20px",
+              background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.3)",
+              borderRadius: 6, color: "#00d4ff", fontSize: 12,
+              fontFamily: "monospace", cursor: "pointer",
+            }}
+          >
+            Limpiar sesión e ir al login
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, _hasHydrated } = useAuthStore();
@@ -57,20 +112,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (role && !canAccessRoute(role, pathname)) return null;
 
   return (
-    <MobileContext.Provider value={{
-      isMobile, isTablet, isDesktop,
-      toggleMenu: () => setMenuOpen(o => !o),
-    }}>
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#080b11" }}>
-        <Sidebar
-          isMobile={isMobile}
-          mobileOpen={menuOpen}
-          onMobileClose={() => setMenuOpen(false)}
-        />
-        <main style={{ flex: 1, overflow: "auto", minWidth: 0 }}>
-          {children}
-        </main>
-      </div>
-    </MobileContext.Provider>
+    <DashboardErrorBoundary>
+      <MobileContext.Provider value={{
+        isMobile, isTablet, isDesktop,
+        toggleMenu: () => setMenuOpen(o => !o),
+      }}>
+        <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#080b11" }}>
+          <Sidebar
+            isMobile={isMobile}
+            mobileOpen={menuOpen}
+            onMobileClose={() => setMenuOpen(false)}
+          />
+          <main style={{ flex: 1, overflow: "auto", minWidth: 0 }}>
+            {children}
+          </main>
+        </div>
+      </MobileContext.Provider>
+    </DashboardErrorBoundary>
   );
 }
