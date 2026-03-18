@@ -160,7 +160,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 width={170}
                 height={170}
                 style={{
-                  animation: "logoFloat 4s ease-in-out infinite, logoGlow 3s ease-in-out infinite",
+                  filter: "drop-shadow(0 0 16px rgba(0,212,255,0.4)) drop-shadow(0 0 40px rgba(0,212,255,0.15))",
                 }}
               />
             </div>
