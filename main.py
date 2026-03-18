@@ -4,10 +4,10 @@ from contextlib import asynccontextmanager
 
 from config import settings
 from database import engine
-from models import user, report, worklist, audit, feedback  # noqa: F401 — ensure models are registered
+from models import user, report, worklist, audit, feedback, asistrad  # noqa: F401 — ensure models are registered
 from database import Base
 
-from routers import auth, dictation, transcribe, reports, worklist as worklist_router, admin, patients, feedback
+from routers import auth, dictation, transcribe, reports, worklist as worklist_router, admin, patients, feedback, asistrad
 
 
 @asynccontextmanager
@@ -46,6 +46,7 @@ app.include_router(worklist_router.router)
 app.include_router(admin.router)
 app.include_router(patients.router)
 app.include_router(feedback.router)
+app.include_router(asistrad.router)
 
 
 @app.get("/health")
