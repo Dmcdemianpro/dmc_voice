@@ -253,18 +253,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               paddingTop: "12px",
               overflow: "hidden",
             }}>
-              <svg width="100%" height="28" viewBox="0 0 700 28" preserveAspectRatio="none">
+              <svg width="200%" height="28" viewBox="0 0 1400 28" preserveAspectRatio="none"
+                style={{ animation: "ekgScroll 6s linear infinite" }}>
                 <path
-                  d="M0,14 L55,14 L70,14 L80,3 L93,25 L104,6 L116,22 L125,14 L220,14 L232,10 L244,18 L253,14 L350,14 L362,14 L372,2 L385,26 L396,5 L408,23 L417,14 L510,14 L522,9 L535,19 L544,14 L638,14 L650,11 L663,17 L672,14 L700,14"
+                  d="M0,14 L55,14 L70,14 L80,3 L93,25 L104,6 L116,22 L125,14 L220,14 L232,10 L244,18 L253,14 L350,14 L362,14 L372,2 L385,26 L396,5 L408,23 L417,14 L510,14 L522,9 L535,19 L544,14 L638,14 L650,11 L663,17 L672,14 L700,14 L755,14 L770,14 L780,3 L793,25 L804,6 L816,22 L825,14 L920,14 L932,10 L944,18 L953,14 L1050,14 L1062,14 L1072,2 L1085,26 L1096,5 L1108,23 L1117,14 L1210,14 L1222,9 L1235,19 L1244,14 L1338,14 L1350,11 L1363,17 L1372,14 L1400,14"
                   fill="none"
                   stroke="rgba(0,212,255,0.6)"
                   strokeWidth="1.2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  style={{
-                    strokeDasharray: 3200,
-                    animation: "ekgTrace 4s ease-out forwards",
-                  }}
                 />
               </svg>
             </div>

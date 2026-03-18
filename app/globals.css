@@ -64,6 +64,10 @@
   0%   { stroke-dashoffset: 3200; }
   100% { stroke-dashoffset: 0; }
 }
+@keyframes ekgScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 @keyframes loginSpin {
   to { transform: rotate(360deg); }
 }
