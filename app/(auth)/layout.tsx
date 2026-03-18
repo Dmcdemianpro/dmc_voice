@@ -150,7 +150,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 alt="RIS Voice AI"
                 width={110}
                 height={110}
-                style={{ borderRadius: "50%" }}
+                style={{
+                  borderRadius: "50%",
+                  animation: "logoFloat 4s ease-in-out infinite, logoGlow 3s ease-in-out infinite",
+                }}
               />
             </div>
 

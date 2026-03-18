@@ -67,6 +67,14 @@
 @keyframes loginSpin {
   to { transform: rotate(360deg); }
 }
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-6px) scale(1.04); }
+}
+@keyframes logoGlow {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(0,212,255,0.3)) drop-shadow(0 0 20px rgba(0,212,255,0.1)); }
+  50%      { filter: drop-shadow(0 0 16px rgba(0,212,255,0.5)) drop-shadow(0 0 40px rgba(0,212,255,0.25)); }
+}
 
 /* ── Auth form inputs ── */
 .auth-input::placeholder { color: rgba(100,116,139,0.5) !important; }
