@@ -94,7 +94,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {/* Outer decorative ring */}
             <div style={{
               position: "absolute",
-              width: 360, height: 360,
+              width: 440, height: 440,
               border: "1px dashed rgba(0,212,255,0.07)",
               borderRadius: "50%",
               animation: "ringRotate 30s linear infinite",
@@ -102,56 +102,64 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {/* Primary rotating ring */}
             <div style={{
               position: "absolute",
-              width: 290, height: 290,
+              width: 370, height: 370,
               borderRadius: "50%",
               border: "1px solid transparent",
-              borderTop: "1px solid rgba(0,212,255,0.4)",
-              borderRight: "1px solid rgba(0,212,255,0.12)",
+              borderTop: "1.5px solid rgba(0,212,255,0.5)",
+              borderRight: "1px solid rgba(0,212,255,0.15)",
               animation: "ringRotate 12s linear infinite",
             }} />
             {/* Secondary ring */}
             <div style={{
               position: "absolute",
-              width: 230, height: 230,
+              width: 310, height: 310,
               borderRadius: "50%",
               border: "1px solid transparent",
-              borderBottom: "1px solid rgba(16,185,129,0.4)",
-              borderLeft: "1px solid rgba(16,185,129,0.1)",
+              borderBottom: "1.5px solid rgba(16,185,129,0.5)",
+              borderLeft: "1px solid rgba(16,185,129,0.12)",
               animation: "ringRotateRev 8s linear infinite",
             }} />
             {/* Inner static ring */}
             <div style={{
               position: "absolute",
-              width: 170, height: 170,
+              width: 260, height: 260,
               border: "1px solid rgba(0,212,255,0.12)",
               borderRadius: "50%",
             }} />
             {/* Pulse ring */}
             <div style={{
               position: "absolute",
-              width: 136, height: 136,
+              width: 230, height: 230,
               border: "1.5px solid rgba(0,212,255,0.25)",
               borderRadius: "50%",
               animation: "pulseExpand 2.8s ease-out infinite",
+            }} />
+            {/* Second pulse ring (delayed) */}
+            <div style={{
+              position: "absolute",
+              width: 230, height: 230,
+              border: "1.5px solid rgba(0,212,255,0.15)",
+              borderRadius: "50%",
+              animation: "pulseExpand 2.8s ease-out 1.4s infinite",
             }} />
 
             {/* Core circle */}
             <div style={{
               position: "relative",
-              width: 160, height: 160,
-              background: "radial-gradient(circle at 38% 36%, rgba(0,212,255,0.18) 0%, rgba(0,212,255,0.05) 100%)",
-              border: "1px solid rgba(0,212,255,0.4)",
+              width: 220, height: 220,
+              background: "radial-gradient(circle at 38% 36%, rgba(0,212,255,0.22) 0%, rgba(0,212,255,0.06) 100%)",
+              border: "1.5px solid rgba(0,212,255,0.45)",
               borderRadius: "50%",
               display: "flex", alignItems: "center", justifyContent: "center",
               animation: "coreBeat 3s ease-in-out infinite",
+              boxShadow: "0 0 60px rgba(0,212,255,0.15), inset 0 0 40px rgba(0,212,255,0.08)",
             }}>
               <Image
                 src="/logo.png"
                 alt="RIS Voice AI"
-                width={110}
-                height={110}
+                width={170}
+                height={170}
                 style={{
-                  borderRadius: "50%",
                   animation: "logoFloat 4s ease-in-out infinite, logoGlow 3s ease-in-out infinite",
                 }}
               />
@@ -160,7 +168,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {/* Orbital tick marks */}
             {Array.from({ length: 12 }).map((_, i) => {
               const angle = (i * 30 * Math.PI) / 180;
-              const r = 145;
+              const r = 195;
               const x = 50 + r * Math.sin(angle);
               const y = 50 - r * Math.cos(angle);
               return (

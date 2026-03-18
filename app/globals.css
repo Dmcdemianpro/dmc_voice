@@ -68,12 +68,14 @@
   to { transform: rotate(360deg); }
 }
 @keyframes logoFloat {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-6px) scale(1.04); }
+  0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+  25%      { transform: translateY(-8px) scale(1.03) rotate(1deg); }
+  50%      { transform: translateY(-12px) scale(1.06) rotate(0deg); }
+  75%      { transform: translateY(-8px) scale(1.03) rotate(-1deg); }
 }
 @keyframes logoGlow {
-  0%, 100% { filter: drop-shadow(0 0 8px rgba(0,212,255,0.3)) drop-shadow(0 0 20px rgba(0,212,255,0.1)); }
-  50%      { filter: drop-shadow(0 0 16px rgba(0,212,255,0.5)) drop-shadow(0 0 40px rgba(0,212,255,0.25)); }
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(0,212,255,0.4)) drop-shadow(0 0 30px rgba(0,212,255,0.15)) drop-shadow(0 0 60px rgba(0,212,255,0.05)); }
+  50%      { filter: drop-shadow(0 0 24px rgba(0,212,255,0.6)) drop-shadow(0 0 50px rgba(0,212,255,0.3)) drop-shadow(0 0 80px rgba(0,212,255,0.1)); }
 }
 
 /* ── Auth form inputs ── */
