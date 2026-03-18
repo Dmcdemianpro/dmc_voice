@@ -6,6 +6,8 @@ import { useAuthStore } from "@/store/authStore";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { canAccessRoute, defaultRoute, type Role } from "@/lib/permissions";
 import { useMobile } from "@/hooks/useMobile";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { IdleWarningModal } from "@/components/layout/IdleWarningModal";
 
 // Context para compartir estado mobile con páginas hijas
 interface MobileCtx {
@@ -79,6 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router   = useRouter();
   const pathname = usePathname();
   const { isMobile, isTablet, isDesktop } = useMobile();
+  const { resetTimer } = useIdleTimeout();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -130,6 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </main>
         </div>
+        <IdleWarningModal onStayLoggedIn={resetTimer} />
       </MobileContext.Provider>
     </DashboardErrorBoundary>
   );

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { formatRut, validateRut } from "@/lib/utils";
 import { Eye, EyeOff, AlertCircle, ArrowRight, Lock } from "lucide-react";
+import { toast } from "sonner";
 
 const mono = "var(--font-ibm-plex-mono), monospace";
 
@@ -18,6 +19,30 @@ export default function LoginPage() {
   const [btnHover, setBtnHover] = useState(false);
   const { login, isLoading } = useAuthStore();
   const router = useRouter();
+
+  // Show toast if session was closed due to inactivity
+  useEffect(() => {
+    const wasIdle = localStorage.getItem("idle_logout");
+    if (!wasIdle) return;
+
+    const savedFlag = localStorage.getItem("idle_logout_saved");
+    localStorage.removeItem("idle_logout");
+    localStorage.removeItem("idle_logout_saved");
+
+    if (savedFlag === "ok") {
+      toast.info(
+        "Tu sesion se cerro por inactividad. Tu borrador fue guardado automaticamente.",
+        { duration: 8000 },
+      );
+    } else if (savedFlag === "fail") {
+      toast.warning(
+        "Tu sesion se cerro por inactividad. No se pudo guardar el borrador.",
+        { duration: 8000 },
+      );
+    } else {
+      toast.info("Tu sesion se cerro por inactividad.", { duration: 6000 });
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -103,6 +103,7 @@ export default function ReportDetailPage() {
 
   const handleEditorChange = useCallback((text: string) => {
     editorTextRef.current = text;
+    useReportStore.getState().updateReportText(text);
   }, []);
 
   const handleSave = useCallback(async () => {
