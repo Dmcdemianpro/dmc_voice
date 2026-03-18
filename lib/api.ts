@@ -1,5 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import type { Report, ReportListOut, WorklistItem, User, AuditLog, ClaudeResponse } from "@/types/report.types";
+import type {
+  RadTemplate, RadTemplateVersion, RadReportHistory,
+  AsistRadRequest, AsistRadResponse, Modality, AnatomicalRegion,
+  RadTemplateCreate, RadTemplateUpdate,
+} from "@/types/asistrad.types";
 
 const api = axios.create({
   baseURL: "",
@@ -235,6 +240,37 @@ export const feedbackApi = {
 
   getCorrections: (params?: { modalidad?: string; page?: number }) =>
     api.get("/api/v1/feedback/corrections", { params }).then(r => r.data),
+};
+
+// ── AsistRad — Pre-Informe Asistido ─────────────────────────────────────────
+
+export const asistradApi = {
+  // Modalities & Regions
+  getModalities: () => api.get<Modality[]>("/api/v1/asistrad/modalities").then(r => r.data),
+  getRegions: (modality?: string) =>
+    api.get<AnatomicalRegion[]>("/api/v1/asistrad/regions", { params: { modality } }).then(r => r.data),
+
+  // Templates
+  getTemplates: (modality?: string, region?: string) =>
+    api.get<RadTemplate[]>("/api/v1/asistrad/templates", { params: { modality, region } }).then(r => r.data),
+  getTemplate: (id: string) =>
+    api.get<RadTemplate>(`/api/v1/asistrad/templates/${id}`).then(r => r.data),
+  createTemplate: (data: RadTemplateCreate) =>
+    api.post<RadTemplate>("/api/v1/asistrad/templates", data).then(r => r.data),
+  updateTemplate: (id: string, data: RadTemplateUpdate) =>
+    api.patch<RadTemplate>(`/api/v1/asistrad/templates/${id}`, data).then(r => r.data),
+  deleteTemplate: (id: string) =>
+    api.delete(`/api/v1/asistrad/templates/${id}`).then(r => r.data),
+  getTemplateVersions: (id: string) =>
+    api.get<RadTemplateVersion[]>(`/api/v1/asistrad/templates/${id}/versions`).then(r => r.data),
+
+  // Generate
+  generate: (data: AsistRadRequest) =>
+    api.post<AsistRadResponse>("/api/v1/asistrad/generate", data).then(r => r.data),
+
+  // History & Rating
+  rateHistory: (historyId: string, rating: number, feedback?: string) =>
+    api.patch<RadReportHistory>(`/api/v1/asistrad/history/${historyId}/rating`, { rating, feedback }).then(r => r.data),
 };
 
 export default api;

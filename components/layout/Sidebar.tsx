@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { canAccessRoute, ROLE_META, type Role } from "@/lib/permissions";
 import {
-  LayoutDashboard, ClipboardList, FileText,
+  LayoutDashboard, ClipboardList, FileText, Sparkles,
   Users, LogOut, Shield, Activity, Lock, BrainCircuit, Settings2, X,
 } from "lucide-react";
 
@@ -22,6 +22,7 @@ const ALL_NAV: {
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard",   section: "main" },
   { href: "/worklist",  icon: ClipboardList,   label: "Worklist",    section: "main" },
   { href: "/reports",   icon: FileText,        label: "Informes",    section: "main" },
+  { href: "/asistrad",  icon: Sparkles,        label: "AsistRad",    section: "main" },
   // Sección admin
   { href: "/admin/users",    icon: Users,         label: "Usuarios",   section: "admin" },
   { href: "/admin/audit",    icon: Shield,        label: "Auditoría",  section: "admin" },

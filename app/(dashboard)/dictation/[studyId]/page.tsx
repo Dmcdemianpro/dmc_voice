@@ -9,7 +9,9 @@ import { AlertBanner } from "@/components/dictation/AlertBanner";
 import { DiffViewer } from "@/components/dictation/DiffViewer";
 import { useReportStore } from "@/store/reportStore";
 import { useFeedbackCapture } from "@/hooks/useFeedbackCapture";
-import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu, Save, X, HelpCircle } from "lucide-react";
+import { Loader2, PenLine, Send, FileDown, Mic, ChevronRight, CheckCircle, AlertTriangle, ChevronDown, BrainCircuit, GitCompare, Menu, Save, X, HelpCircle, Sparkles } from "lucide-react";
+import { AsistRadPanel } from "@/components/asistrad/AsistRadPanel";
+import { useAsistRadStore } from "@/store/asistradStore";
 import Link from "next/link";
 import { useMobileCtx } from "../../layout";
 import { normalizeTranscript } from "@/lib/normalizeTranscript";
@@ -114,6 +116,7 @@ function DictationContent() {
   const [warningsOpen, setWarningsOpen] = useState(true);
   const [diffOpen, setDiffOpen] = useState(false);
   const [cmdHelpOpen, setCmdHelpOpen] = useState(false);
+  const { isOpen: asistRadOpen, toggle: toggleAsistRad } = useAsistRadStore();
 
   // Live transcript → editor: mientras no hay informe generado, el dictado
   // fluye directamente al editor para que el radiólogo pueda corregir en vivo.
@@ -159,6 +162,13 @@ function DictationContent() {
       await createManualReport(text, studyId, accessionNumber);
     }
   }, [currentReport, saveReport, createManualReport, studyId, accessionNumber]);
+
+  const handleUsePreReport = useCallback((text: string) => {
+    editorTextRef.current = text;
+    setDraftText(text);
+    setEditorHasText(true);
+    updateReportText(text);
+  }, [updateReportText]);
 
   const handleSign = useCallback(async () => {
     await fb.onSign(editorTextRef.current || currentReport?.texto_final || "");
@@ -257,6 +267,27 @@ function DictationContent() {
           </div>
         )}
 
+        {/* AsistRad toggle */}
+        <button
+          onClick={toggleAsistRad}
+          title="Asistente de Pre-Informe (AsistRad)"
+          style={{
+            marginLeft: isMobile ? "auto" : 0,
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "5px 10px", borderRadius: 5,
+            background: asistRadOpen ? "rgba(0,212,255,0.12)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${asistRadOpen ? "rgba(0,212,255,0.35)" : "rgba(148,163,184,0.15)"}`,
+            cursor: "pointer",
+            color: asistRadOpen ? C.cyan : C.muted,
+            fontSize: 10, fontWeight: 600, fontFamily: mono,
+            letterSpacing: "0.08em", transition: "all 0.15s",
+            flexShrink: 0,
+          }}
+        >
+          <Sparkles size={11} />
+          {!isMobile && "AsistRad"}
+        </button>
+
         {/* Status badge */}
         {currentReport && (
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -284,11 +315,11 @@ function DictationContent() {
         </div>
       )}
 
-      {/* ── Main 2-column layout ── */}
+      {/* ── Main layout ── */}
       <div style={{
         flex: 1, display: isMobile ? "flex" : "grid",
         flexDirection: isMobile ? "column" : undefined,
-        gridTemplateColumns: isMobile ? undefined : "320px 1fr",
+        gridTemplateColumns: isMobile ? undefined : asistRadOpen ? "280px 1fr 320px" : "320px 1fr",
         gap: isMobile ? 12 : 16,
         padding: isMobile ? 10 : 16,
         minHeight: 0, overflow: isMobile ? "auto" : "hidden",
@@ -621,6 +652,23 @@ function DictationContent() {
             />
           </div>
         </PanelCard>
+
+        {/* ── Col 3: AsistRad Panel (cuando está abierto) ── */}
+        {asistRadOpen && (
+          <PanelCard style={{ minHeight: isMobile ? 300 : 0 }}>
+            <AsistRadPanel
+              onUsePreReport={handleUsePreReport}
+              onClose={toggleAsistRad}
+              studyInfo={accessionNumber || modalidad ? {
+                accession_number: accessionNumber,
+                modalidad,
+                region,
+                patient_name: patientName,
+              } : undefined}
+              isMobile={isMobile}
+            />
+          </PanelCard>
+        )}
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
