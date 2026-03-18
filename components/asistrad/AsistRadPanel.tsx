@@ -35,7 +35,7 @@ export function AsistRadPanel({ onUsePreReport, onClose, studyInfo, isMobile }: 
   const {
     modalities, regions, templates,
     selectedModality, selectedRegion, selectedTemplate,
-    clinicalContext, preReport, isGenerating,
+    clinicalContext, preReport, isGenerating, autoReady,
     loadModalities, selectModality, selectRegion, selectTemplate,
     setClinicalContext, generatePreReport, rateResult, reset,
   } = useAsistRadStore();
@@ -98,6 +98,28 @@ export function AsistRadPanel({ onUsePreReport, onClose, studyInfo, isMobile }: 
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+
+        {/* Auto-detected banner */}
+        {autoReady && !preReport && (
+          <div style={{
+            padding: "10px 12px", borderRadius: 6,
+            background: "rgba(16,185,129,0.06)",
+            border: "1px solid rgba(16,185,129,0.25)",
+            display: "flex", flexDirection: "column", gap: 6,
+          }}>
+            <div style={{ fontSize: 9.5, fontWeight: 600, color: C.green, letterSpacing: "0.1em" }}>
+              DETECCION AUTOMATICA
+            </div>
+            <div style={{ fontSize: 10.5, color: C.sub, lineHeight: 1.5 }}>
+              Se detecto <strong style={{ color: C.text }}>{selectedModality}</strong> — <strong style={{ color: C.text }}>{selectedRegion}</strong> desde el worklist.
+              Plantilla <strong style={{ color: C.cyan }}>{selectedTemplate?.name}</strong> seleccionada.
+            </div>
+            <div style={{ fontSize: 9.5, color: C.muted }}>
+              Puedes cambiar la seleccion abajo o presionar directamente Generar.
+            </div>
+          </div>
+        )}
+
 
         {/* Step 1: Modality */}
         <div>

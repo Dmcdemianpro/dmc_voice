@@ -23,6 +23,7 @@ interface AsistRadState {
 
   // Panel visibility
   isOpen: boolean;
+  autoReady: boolean; // true when auto-detection filled everything
 
   // Actions
   loadModalities: () => Promise<void>;
@@ -32,6 +33,7 @@ interface AsistRadState {
   setClinicalContext: (text: string) => void;
   generatePreReport: (studyInfo?: Record<string, unknown>) => Promise<void>;
   rateResult: (rating: number, feedback?: string) => Promise<void>;
+  autoDetect: (modality?: string, region?: string) => Promise<void>;
   toggle: () => void;
   reset: () => void;
 }
@@ -47,6 +49,7 @@ export const useAsistRadStore = create<AsistRadState>()((set, get) => ({
   preReport: null,
   isGenerating: false,
   isOpen: false,
+  autoReady: false,
 
   loadModalities: async () => {
     try {
@@ -121,6 +124,71 @@ export const useAsistRadStore = create<AsistRadState>()((set, get) => ({
     }
   },
 
+  autoDetect: async (modality?: string, region?: string) => {
+    if (!modality) { set({ autoReady: false }); return; }
+
+    // Map common worklist modality names to our codes
+    const MODALITY_MAP: Record<string, string> = {
+      "RX": "RX", "DX": "RX", "CR": "RX", "RADIOGRAFIA": "RX",
+      "TC": "TC", "CT": "TC", "TAC": "TC", "TOMOGRAFIA": "TC",
+      "RM": "RM", "MR": "RM", "RESONANCIA": "RM",
+      "ECO": "ECO", "US": "ECO", "ECOGRAFIA": "ECO", "ULTRASONIDO": "ECO",
+      "MAMOGRAFIA": "MAMOGRAFIA", "MG": "MAMOGRAFIA", "MX": "MAMOGRAFIA",
+      "PET-CT": "PET-CT", "PT": "PET-CT",
+      "FLUOROSCOPIA": "FLUOROSCOPIA", "RF": "FLUOROSCOPIA",
+      "DENSITOMETRIA": "DENSITOMETRIA", "DXA": "DENSITOMETRIA",
+      "ANGIOGRAFIA": "ANGIOGRAFIA", "XA": "ANGIOGRAFIA",
+      "MEDICINA_NUCLEAR": "MEDICINA_NUCLEAR", "NM": "MEDICINA_NUCLEAR",
+    };
+
+    const normalizedMod = MODALITY_MAP[modality.toUpperCase()] || modality.toUpperCase();
+
+    try {
+      // Load modalities if not loaded
+      let { modalities } = get();
+      if (!modalities.length) {
+        modalities = await asistradApi.getModalities();
+        set({ modalities });
+      }
+
+      // Check if modality exists
+      if (!modalities.find(m => m.code === normalizedMod)) {
+        set({ autoReady: false });
+        return;
+      }
+
+      // Select modality
+      set({ selectedModality: normalizedMod, selectedRegion: null, selectedTemplate: null, templates: [], preReport: null });
+      const regions = await asistradApi.getRegions(normalizedMod);
+      set({ regions });
+
+      // Try to match region
+      if (region) {
+        const regionNorm = region.trim();
+        const match = regions.find(r =>
+          r.name.toLowerCase() === regionNorm.toLowerCase() ||
+          r.name.toLowerCase().includes(regionNorm.toLowerCase()) ||
+          regionNorm.toLowerCase().includes(r.name.toLowerCase())
+        );
+        if (match) {
+          set({ selectedRegion: match.name });
+          const templates = await asistradApi.getTemplates(normalizedMod, match.name);
+          set({ templates });
+
+          // Auto-select first template
+          if (templates.length > 0) {
+            set({ selectedTemplate: templates[0], autoReady: true });
+            return;
+          }
+        }
+      }
+
+      set({ autoReady: false });
+    } catch {
+      set({ autoReady: false });
+    }
+  },
+
   toggle: () => set((s) => ({ isOpen: !s.isOpen })),
 
   reset: () => set({
@@ -130,6 +198,8 @@ export const useAsistRadStore = create<AsistRadState>()((set, get) => ({
     clinicalContext: "",
     preReport: null,
     isGenerating: false,
+    isOpen: false,
+    autoReady: false,
     regions: [],
     templates: [],
   }),

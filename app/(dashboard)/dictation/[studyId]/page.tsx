@@ -116,7 +116,14 @@ function DictationContent() {
   const [warningsOpen, setWarningsOpen] = useState(true);
   const [diffOpen, setDiffOpen] = useState(false);
   const [cmdHelpOpen, setCmdHelpOpen] = useState(false);
-  const { isOpen: asistRadOpen, toggle: toggleAsistRad } = useAsistRadStore();
+  const { isOpen: asistRadOpen, toggle: toggleAsistRad, autoDetect, autoReady } = useAsistRadStore();
+
+  // Auto-detect modality/region from worklist params and pre-fill AsistRad
+  useEffect(() => {
+    if (modalidad || region) {
+      autoDetect(modalidad, region);
+    }
+  }, [modalidad, region, autoDetect]);
 
   // Live transcript → editor: mientras no hay informe generado, el dictado
   // fluye directamente al editor para que el radiólogo pueda corregir en vivo.
@@ -270,22 +277,34 @@ function DictationContent() {
         {/* AsistRad toggle */}
         <button
           onClick={toggleAsistRad}
-          title="Asistente de Pre-Informe (AsistRad)"
+          title={autoReady
+            ? `AsistRad listo — plantilla detectada para ${modalidad || ""} ${region || ""}`
+            : "Asistente de Pre-Informe (AsistRad)"}
           style={{
             marginLeft: isMobile ? "auto" : 0,
             display: "flex", alignItems: "center", gap: 5,
             padding: "5px 10px", borderRadius: 5,
-            background: asistRadOpen ? "rgba(0,212,255,0.12)" : "rgba(255,255,255,0.04)",
-            border: `1px solid ${asistRadOpen ? "rgba(0,212,255,0.35)" : "rgba(148,163,184,0.15)"}`,
+            background: asistRadOpen
+              ? "rgba(0,212,255,0.12)"
+              : autoReady
+                ? "rgba(0,212,255,0.10)"
+                : "rgba(255,255,255,0.04)",
+            border: `1px solid ${asistRadOpen
+              ? "rgba(0,212,255,0.35)"
+              : autoReady
+                ? "rgba(0,212,255,0.4)"
+                : "rgba(148,163,184,0.15)"}`,
             cursor: "pointer",
-            color: asistRadOpen ? C.cyan : C.muted,
+            color: asistRadOpen || autoReady ? C.cyan : C.muted,
             fontSize: 10, fontWeight: 600, fontFamily: mono,
             letterSpacing: "0.08em", transition: "all 0.15s",
             flexShrink: 0,
+            animation: autoReady && !asistRadOpen ? "asistrad-pulse 2s ease-in-out infinite" : "none",
+            boxShadow: autoReady && !asistRadOpen ? "0 0 12px rgba(0,212,255,0.25)" : "none",
           }}
         >
           <Sparkles size={11} />
-          {!isMobile && "AsistRad"}
+          {!isMobile && (autoReady ? "AsistRad ●" : "AsistRad")}
         </button>
 
         {/* Status badge */}
@@ -671,7 +690,13 @@ function DictationContent() {
         )}
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes asistrad-pulse {
+          0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.2); }
+          50% { box-shadow: 0 0 18px rgba(0,212,255,0.45), 0 0 4px rgba(0,212,255,0.3); }
+        }
+      `}</style>
     </div>
   );
 }
