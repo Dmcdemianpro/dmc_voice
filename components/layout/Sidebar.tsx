@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { canAccessRoute, ROLE_META, type Role } from "@/lib/permissions";
@@ -147,17 +148,13 @@ export function Sidebar({ mobileOpen, onMobileClose, isMobile }: SidebarProps) {
         justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 30, height: 30,
-            background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.3)",
-            borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 0 12px rgba(0,212,255,0.1)", flexShrink: 0,
-          }}>
-            <svg width="17" height="11" viewBox="0 0 17 11" fill="none">
-              <path d="M1 5.5H3.5L5 1L7 10L8.5 3L10 8L11.5 4.5L13 6.5L14 5.5H16"
-                stroke="#00d4ff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
+          <Image
+            src="/logo.png"
+            alt="RIS Voice AI"
+            width={30}
+            height={30}
+            style={{ borderRadius: 6, flexShrink: 0 }}
+          />
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", letterSpacing: "0.04em" }}>
               RIS Voice<span style={{ color: "#00d4ff" }}>.</span>AI

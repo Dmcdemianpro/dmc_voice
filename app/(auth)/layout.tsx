@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMobile } from "@/hooks/useMobile";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -65,19 +66,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             animation: "fadeUp 0.5s ease-out",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
-              <div style={{
-                width: 30, height: 30,
-                background: "rgba(0,212,255,0.08)",
-                border: "1px solid rgba(0,212,255,0.35)",
-                borderRadius: "5px",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 0 12px rgba(0,212,255,0.1)",
-              }}>
-                <svg width="17" height="11" viewBox="0 0 17 11" fill="none">
-                  <path d="M1 5.5H3.5L5 1L7 10L8.5 3L10 8L11.5 4.5L13 6.5L14 5.5H16"
-                    stroke="#00d4ff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
+              <Image
+                src="/logo.png"
+                alt="RIS Voice AI"
+                width={30}
+                height={30}
+                style={{ borderRadius: 5 }}
+              />
               <div>
                 <span style={{ fontSize: "12px", fontWeight: 600, color: "#e2e8f0", letterSpacing: "0.05em" }}>
                   RIS Voice<span style={{ color: "#00d4ff" }}>.</span>AI
@@ -150,10 +145,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               display: "flex", alignItems: "center", justifyContent: "center",
               animation: "coreBeat 3s ease-in-out infinite",
             }}>
-              <svg width="46" height="28" viewBox="0 0 46 28" fill="none">
-                <path d="M1 14H7L9.5 4L13.5 24L17 7.5L21 20.5L24.5 11L28 17L31 14H45"
-                  stroke="#00d4ff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <Image
+                src="/logo.png"
+                alt="RIS Voice AI"
+                width={64}
+                height={64}
+                style={{ borderRadius: "50%" }}
+              />
             </div>
 
             {/* Orbital tick marks */}
@@ -369,19 +367,13 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               position: "absolute", top: 24, left: 24,
               display: "flex", alignItems: "center", gap: 9, zIndex: 2,
             }}>
-              <div style={{
-                width: 30, height: 30,
-                background: "rgba(0,212,255,0.08)",
-                border: "1px solid rgba(0,212,255,0.35)",
-                borderRadius: 5,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 0 12px rgba(0,212,255,0.1)",
-              }}>
-                <svg width="17" height="11" viewBox="0 0 17 11" fill="none">
-                  <path d="M1 5.5H3.5L5 1L7 10L8.5 3L10 8L11.5 4.5L13 6.5L14 5.5H16"
-                    stroke="#00d4ff" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </div>
+              <Image
+                src="/logo.png"
+                alt="RIS Voice AI"
+                width={30}
+                height={30}
+                style={{ borderRadius: 5 }}
+              />
               <span style={{ fontSize: 12, fontWeight: 600, color: "#e2e8f0", letterSpacing: "0.05em" }}>
                 RIS Voice<span style={{ color: "#00d4ff" }}>.</span>AI
               </span>
