@@ -138,7 +138,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {/* Core circle */}
             <div style={{
               position: "relative",
-              width: 112, height: 112,
+              width: 160, height: 160,
               background: "radial-gradient(circle at 38% 36%, rgba(0,212,255,0.18) 0%, rgba(0,212,255,0.05) 100%)",
               border: "1px solid rgba(0,212,255,0.4)",
               borderRadius: "50%",
@@ -148,8 +148,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               <Image
                 src="/logo.png"
                 alt="RIS Voice AI"
-                width={64}
-                height={64}
+                width={110}
+                height={110}
                 style={{ borderRadius: "50%" }}
               />
             </div>
