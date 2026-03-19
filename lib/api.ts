@@ -273,4 +273,45 @@ export const asistradApi = {
     api.patch<RadReportHistory>(`/api/v1/asistrad/history/${historyId}/rating`, { rating, feedback }).then(r => r.data),
 };
 
+// ── PACS — DCM4CHEE DICOMweb ────────────────────────────────────────────────
+
+import type { PacsStudiesResponse, PacsHealthResponse, DicomAnalysisResponse } from "@/types/pacs.types";
+
+export const pacsApi = {
+  health: () =>
+    api.get<PacsHealthResponse>("/api/v1/pacs/health").then(r => r.data),
+
+  searchStudies: (params?: {
+    patient_name?: string;
+    patient_id?: string;
+    study_date?: string;
+    modality?: string;
+    accession_number?: string;
+    study_description?: string;
+    limit?: number;
+    offset?: number;
+  }) =>
+    api.get<PacsStudiesResponse>("/api/v1/pacs/studies", { params }).then(r => r.data),
+
+  getStudy: (studyUid: string) =>
+    api.get(`/api/v1/pacs/studies/${studyUid}`).then(r => r.data),
+
+  getViewerUrl: (studyUid: string) =>
+    api.get<{ viewer_url: string; study_instance_uid: string }>(
+      `/api/v1/pacs/studies/${studyUid}/viewer-url`
+    ).then(r => r.data),
+
+  getWorklist: (modality?: string) =>
+    api.get("/api/v1/pacs/worklist", { params: { modality } }).then(r => r.data),
+
+  analyzeDicom: (file: File) => {
+    const form = new FormData();
+    form.append("dicom_file", file);
+    return api.post<DicomAnalysisResponse>("/api/v1/pacs/analizar-dicom", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120_000,
+    }).then(r => r.data);
+  },
+};
+
 export default api;
