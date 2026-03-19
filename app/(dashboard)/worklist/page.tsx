@@ -1477,6 +1477,15 @@ export default function WorklistPage() {
         </div>
       )}
 
+      {/* Link Study Modal */}
+      {linkStudyTarget && (
+        <LinkStudyModal
+          worklistItem={linkStudyTarget}
+          onClose={() => setLinkStudyTarget(null)}
+          onLinked={handleStudyLinked}
+        />
+      )}
+
       <style>{`
         @keyframes spin  { to { transform: rotate(360deg); } }
         @keyframes wSpin { to { transform: rotate(360deg); } }
@@ -1583,14 +1592,5 @@ function PatientForm({
         </div>
       )}
     </div>
-
-    {/* Link Study Modal */}
-    {linkStudyTarget && (
-      <LinkStudyModal
-        worklistItem={linkStudyTarget}
-        onClose={() => setLinkStudyTarget(null)}
-        onLinked={handleStudyLinked}
-      />
-    )}
   </>);
 }
