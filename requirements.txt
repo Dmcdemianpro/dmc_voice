@@ -20,6 +20,8 @@ aiofiles==24.1.0
 # ── AI / Feedback Loop ──────────────────────────────────────────────────────
 sentence-transformers==3.3.1
 numpy==1.26.4
+pydicom==3.0.1
+scipy==1.14.1
 # ── Whisper fine-tuning (instalar manualmente en entorno de entrenamiento) ──
 # transformers==4.47.0
 # datasets==3.2.0

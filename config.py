@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     pdf_output_dir: str = "./pdf_storage"
     app_env: str = "development"
     integration_token: str = ""          # Token para endpoint /worklist/integration (vacío = sin auth)
+    # PACS DCM4CHEE (VPS 10)
+    pacs_dcm4chee_url: str = ""
+    pacs_aet: str = "DMCPACS"
+    ohif_viewer_url: str = ""
+    # InformIA DICOM analysis
+    informia_dicom_analysis: bool = False
+    informia_max_tokens: int = 2000
+    informia_default_temperatura: float = 0.3
+    informia_few_shot_max: int = 5
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
