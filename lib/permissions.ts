@@ -17,6 +17,7 @@ export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
   "/dictation":   ["ADMIN", "RADIOLOGO"],
   "/asistrad":    ["ADMIN", "JEFE_SERVICIO", "RADIOLOGO"],
   "/pacs":        ["ADMIN", "JEFE_SERVICIO", "RADIOLOGO"],
+  "/informia":    ["ADMIN", "JEFE_SERVICIO", "RADIOLOGO"],
   "/admin/users":     ["ADMIN", "JEFE_SERVICIO"],
   "/admin/audit":     ["ADMIN", "JEFE_SERVICIO"],
   "/admin/training":  ["ADMIN", "JEFE_SERVICIO"],

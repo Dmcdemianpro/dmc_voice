@@ -8,6 +8,7 @@ import { canAccessRoute, ROLE_META, type Role } from "@/lib/permissions";
 import {
   LayoutDashboard, ClipboardList, FileText, Sparkles, MonitorUp,
   Users, LogOut, Shield, Activity, Lock, BrainCircuit, Settings2, X,
+  Microscope,
 } from "lucide-react";
 
 // ── Definición de todos los ítems de navegación ──────────────────────────────
@@ -25,6 +26,7 @@ const ALL_NAV: {
   { href: "/reports",   icon: FileText,        label: "Informes",    section: "main" },
   { href: "/asistrad",  icon: Sparkles,        label: "AsistRad",    section: "main" },
   { href: "/pacs",      icon: MonitorUp,       label: "PACS",        section: "main" },
+  { href: "/informia",  icon: Microscope,      label: "InformIA",    section: "main" },
   // Sección admin
   { href: "/admin/users",    icon: Users,         label: "Usuarios",   section: "admin" },
   { href: "/admin/audit",    icon: Shield,        label: "Auditoría",  section: "admin" },

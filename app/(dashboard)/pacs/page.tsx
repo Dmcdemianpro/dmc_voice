@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { pacsApi } from "@/lib/api";
 import { useMobileCtx } from "../layout";
 import type { PacsStudy, PacsHealthResponse } from "@/types/pacs.types";
+import { useRouter } from "next/navigation";
 import {
   Search, RefreshCw, Monitor, ExternalLink, FileText,
   Calendar, User, Hash, Activity, AlertCircle, Loader2,
-  ChevronLeft, ChevronRight, Filter, X,
+  ChevronLeft, ChevronRight, Filter, X, Sparkles, Upload,
 } from "lucide-react";
 
 const mono = "var(--font-ibm-plex-mono), monospace";
@@ -272,6 +273,7 @@ export default function PacsPage() {
 /* ── Study Card Component ─────────────────────────────────────────────────── */
 
 function StudyCard({ study, formatDate }: { study: PacsStudy; formatDate: (d: string) => string }) {
+  const router = useRouter();
   const modalityColor: Record<string, string> = {
     CT: "#f59e0b", MR: "#8b5cf6", US: "#10b981", DX: "#3b82f6",
     CR: "#3b82f6", PT: "#ef4444", NM: "#ec4899", MG: "#f97316", XA: "#06b6d4",
@@ -326,7 +328,7 @@ function StudyCard({ study, formatDate }: { study: PacsStudy; formatDate: (d: st
       </div>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
         <a
           href={study.viewer_url}
           target="_blank"
@@ -341,6 +343,18 @@ function StudyCard({ study, formatDate }: { study: PacsStudy; formatDate: (d: st
         >
           <ExternalLink size={11} /> Ver Imágenes
         </a>
+        <button
+          onClick={() => router.push(`/informia/generar?study_uid=${study.study_instance_uid}&modality=${study.modalities}&patient=${encodeURIComponent(study.patient_name)}&desc=${encodeURIComponent(study.study_description || "")}`)}
+          style={{
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "6px 10px", borderRadius: 5, fontSize: 10,
+            background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)",
+            color: "#a78bfa", cursor: "pointer", fontFamily: "var(--font-ibm-plex-mono), monospace",
+            fontWeight: 500, whiteSpace: "nowrap",
+          }}
+        >
+          <Sparkles size={11} /> InformIA
+        </button>
       </div>
     </div>
   );
