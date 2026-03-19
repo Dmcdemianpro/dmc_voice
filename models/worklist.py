@@ -51,5 +51,6 @@ class Worklist(Base):
 
     # ── Imágenes disponibles ──────────────────────────────────────────────────
     has_images: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    study_instance_uid: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
 
     report = relationship("Report", back_populates="worklist_entry")

@@ -11,6 +11,7 @@ from middleware.auth_middleware import get_current_user, require_roles
 from models.user import User
 from config import settings
 from services import orthanc_service
+from services.pacs_service import pacs_service
 
 router = APIRouter(prefix="/api/v1/worklist", tags=["worklist"], redirect_slashes=False)
 
@@ -109,6 +110,8 @@ def _serialize(item: Worklist) -> dict:
         "assigned_to_id": str(item.assigned_to_id) if item.assigned_to_id else None,
         "assigned_to_name": item.assigned_to_name,
         "has_images": item.has_images,
+        "study_instance_uid": item.study_instance_uid,
+        "viewer_url": f"https://visor.dmcprojects.cl/viewer?StudyInstanceUIDs={item.study_instance_uid}" if item.study_instance_uid else None,
     }
 
 
@@ -250,6 +253,98 @@ async def toggle_images(
         raise HTTPException(status_code=404, detail="Estudio no encontrado en la worklist")
 
     item.has_images = not item.has_images
+    await db.commit()
+    await db.refresh(item)
+    return _serialize(item)
+
+
+@router.get("/{worklist_id}/search-studies")
+async def search_pacs_studies(
+    worklist_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Busca estudios DICOM en el PACS que coincidan con esta prestación.
+    Busca por accession_number, patient_id, y fecha programada.
+    """
+    result = await db.execute(select(Worklist).where(Worklist.id == worklist_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Estudio no encontrado en la worklist")
+
+    # Buscar en PACS por accession number (más confiable)
+    studies = []
+    if item.accession_number:
+        raw = await pacs_service.search_studies(accession_number=item.accession_number)
+        studies.extend([pacs_service.format_study(s) for s in raw])
+
+    # Si no hay resultados, intentar por patient_id y modalidad
+    if not studies and item.patient_rut:
+        raw = await pacs_service.search_studies(
+            patient_id=item.patient_rut,
+            modality=item.modalidad if item.modalidad else None,
+            limit=20
+        )
+        studies.extend([pacs_service.format_study(s) for s in raw])
+
+    return {
+        "worklist_item": _serialize(item),
+        "pacs_studies": studies,
+        "count": len(studies)
+    }
+
+
+class LinkStudyRequest(BaseModel):
+    study_instance_uid: str
+
+
+@router.post("/{worklist_id}/link-study")
+async def link_pacs_study(
+    worklist_id: str,
+    body: LinkStudyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("ADMIN", "JEFE_SERVICIO", "TECNOLOGO")),
+):
+    """
+    Vincula un estudio DICOM del PACS con esta prestación.
+    Guarda el study_instance_uid y marca has_images=True.
+    """
+    result = await db.execute(select(Worklist).where(Worklist.id == worklist_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Estudio no encontrado en la worklist")
+
+    # Verificar que el estudio existe en el PACS
+    try:
+        await pacs_service.get_study_metadata(body.study_instance_uid)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Estudio no encontrado en PACS: {e}")
+
+    # Vincular
+    item.study_instance_uid = body.study_instance_uid
+    item.has_images = True
+
+    await db.commit()
+    await db.refresh(item)
+    return _serialize(item)
+
+
+@router.delete("/{worklist_id}/unlink-study")
+async def unlink_pacs_study(
+    worklist_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_roles("ADMIN", "JEFE_SERVICIO", "TECNOLOGO")),
+):
+    """Desvincular el estudio DICOM de esta prestación."""
+    result = await db.execute(select(Worklist).where(Worklist.id == worklist_id))
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Estudio no encontrado en la worklist")
+
+    item.study_instance_uid = None
+    item.has_images = False
+
     await db.commit()
     await db.refresh(item)
     return _serialize(item)
