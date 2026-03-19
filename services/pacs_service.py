@@ -11,7 +11,12 @@ DICOMWEB_RS = f"{settings.pacs_dcm4chee_url}/aets/{settings.pacs_aet}/rs"
 
 class PACSService:
     def __init__(self):
-        self.client = httpx.AsyncClient(timeout=30.0, verify=True)
+        # verify=False: direct IP access to VPS 10 with Cloudflare Origin cert
+        self.client = httpx.AsyncClient(
+            timeout=30.0,
+            verify=False,
+            headers={"Host": "pacs.dmcprojects.cl"},
+        )
 
     async def search_studies(
         self,
