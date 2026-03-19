@@ -131,8 +131,10 @@ export interface WorklistItem {
   // Asignación
   assigned_to_id: string | null;
   assigned_to_name: string | null;
-  // Imágenes
+  // Imágenes DICOM (vinculación con PACS)
   has_images: boolean;
+  study_instance_uid: string | null;
+  viewer_url: string | null;
 }
 
 export interface User {

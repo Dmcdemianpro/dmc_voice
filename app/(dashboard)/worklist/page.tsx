@@ -13,10 +13,11 @@ import { formatDate } from "@/lib/utils";
 import {
   Mic, Search, RefreshCw, Clock, User as UserIcon, Activity, Plus, X,
   Stethoscope, FileText, CheckCircle, AlertCircle,
-  ImageIcon, UserCheck, Loader2,
+  ImageIcon, UserCheck, Loader2, ExternalLink, Link as LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useMobileCtx } from "../layout";
+import { LinkStudyModal } from "@/components/worklist/LinkStudyModal";
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -207,6 +208,9 @@ export default function WorklistPage() {
   const [assigning, setAssigning] = useState(false);
   const [togglingImages, setTogglingImages] = useState<string | null>(null);
 
+  // Link PACS study modal state
+  const [linkStudyTarget, setLinkStudyTarget] = useState<WorklistItem | null>(null);
+
   // Patient search state
   // mode: "search" → solo buscador | "ask_create" → sin resultados, preguntar
   //        "creating" → formulario nuevo paciente | "loaded" → paciente cargado desde BD
@@ -395,6 +399,11 @@ export default function WorklistPage() {
     } finally {
       setTogglingImages(null);
     }
+  };
+
+  const handleStudyLinked = (updated: WorklistItem) => {
+    setItems(prev => prev.map(i => i.id === updated.id ? updated : i));
+    setLinkStudyTarget(null);
   };
 
   const filtered = items.filter((i) =>
@@ -729,24 +738,44 @@ export default function WorklistPage() {
                     {item.modalidad || "—"}
                   </span>
                   {canToggleImages ? (
-                    <button
-                      onClick={e => { e.stopPropagation(); handleToggleImages(item.id); }}
-                      disabled={togglingImages === item.id}
-                      title={item.has_images ? "Con imágenes — clic para desmarcar" : "Sin imágenes — clic para marcar"}
-                      style={{
-                        background: item.has_images ? "rgba(16,185,129,0.12)" : "transparent",
-                        border: `1px solid ${item.has_images ? "rgba(16,185,129,0.35)" : "#2a3550"}`,
-                        borderRadius: 4, padding: "2px 5px", cursor: "pointer",
-                        display: "flex", alignItems: "center",
-                        color: item.has_images ? "#10b981" : "#3a4a68",
-                        transition: "all 0.15s",
-                      }}
-                    >
-                      {togglingImages === item.id
-                        ? <Loader2 style={{ width: 9, height: 9, animation: "wSpin 0.7s linear infinite" }} />
-                        : <ImageIcon style={{ width: 9, height: 9 }} />
-                      }
-                    </button>
+                    item.study_instance_uid && item.viewer_url ? (
+                      <a
+                        href={item.viewer_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        title="Ver imágenes DICOM en OHIF"
+                        style={{
+                          background: "rgba(16,185,129,0.12)",
+                          border: "1px solid rgba(16,185,129,0.35)",
+                          borderRadius: 4, padding: "2px 5px",
+                          display: "flex", alignItems: "center", gap: 3,
+                          color: "#10b981",
+                          textDecoration: "none",
+                          fontSize: 9,
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        <ImageIcon style={{ width: 9, height: 9 }} />
+                        <ExternalLink style={{ width: 7, height: 7 }} />
+                      </a>
+                    ) : (
+                      <button
+                        onClick={e => { e.stopPropagation(); setLinkStudyTarget(item); }}
+                        title="Vincular estudio DICOM del PACS"
+                        style={{
+                          background: "rgba(0,212,255,0.08)",
+                          border: "1px solid rgba(0,212,255,0.25)",
+                          borderRadius: 4, padding: "2px 5px", cursor: "pointer",
+                          display: "flex", alignItems: "center",
+                          color: "#00d4ff",
+                          fontSize: 9,
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        <LinkIcon style={{ width: 9, height: 9 }} />
+                      </button>
+                    )
                   ) : item.has_images ? (
                     <ImageIcon style={{ width: 10, height: 10, color: "#10b981" }} />
                   ) : null}
@@ -1554,5 +1583,14 @@ function PatientForm({
         </div>
       )}
     </div>
+
+    {/* Link Study Modal */}
+    {linkStudyTarget && (
+      <LinkStudyModal
+        worklistItem={linkStudyTarget}
+        onClose={() => setLinkStudyTarget(null)}
+        onLinked={handleStudyLinked}
+      />
+    )}
   </>);
 }
