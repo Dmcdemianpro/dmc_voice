@@ -365,6 +365,141 @@ IMPRESIÓN DIAGNÓSTICA:
 RECOMENDACIONES:
 {{recomendaciones}}""",
     },
+    # ── Neurología / Neurorradiología ─────────────────────────────────────────
+    {
+        "modality": "TC",
+        "region": "Encéfalo",
+        "name": "TC Encéfalo Normal",
+        "description": "Plantilla para TC de encéfalo sin hallazgos patológicos agudos",
+        "template_text": """No se cuenta con estudios previos para comparar.
+
+Troncoencéfalo y cerebelo sin lesiones focales.
+Sistema ventricular supratentorial de morfología y dimensiones normales.
+Encéfalo de densitometría conservada.
+No se aprecia desplazamiento de estructuras de línea media.
+No hay focos hemorrágicos intraparenquimatosos, presencia de HSA ni colecciones yuxtadurales.
+En ventana ósea no se evidencian imágenes craneales de aspecto sospechoso.
+
+No se identifica compromisos agudos del encéfalo con la presente técnica.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Encéfalo",
+        "name": "TC Encéfalo Patológico",
+        "description": "Plantilla para TC de encéfalo con hallazgos de leucoaraiosis y ateromatosis",
+        "template_text": """No se cuenta con estudios previos para comparar.
+
+Troncoencéfalo y cerebelo sin lesiones focales.
+Sistema ventricular supratentorial {{ventriculos}}.
+No se aprecia desplazamiento de estructuras de línea media.
+{{hallazgos_parenquima}}.
+No se identifica presencia de focos hemorrágicos, HSA ni colecciones yuxtadurales.
+{{hallazgos_vasculares}}.
+En ventana ósea no se evidencian imágenes craneales de aspecto sospechoso.
+
+{{impresion}}.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Angiotac cerebral",
+        "name": "AngioTC Cerebral Normal",
+        "description": "Plantilla para angiografía por TC cerebral sin hallazgos patológicos",
+        "template_text": """Cayado aórtico y vasos supraaórticos en límites normales.
+Bulbos carotídeos de aspecto normal sin placas parietales evidentes.
+Arterias vertebrales de origen trayecto y calibre normales en todos sus segmentos cervicales.
+Segmentos intracavernosos de ambas ACI de aspecto en límites normales.
+Polígono de Willis sin dilataciones aneurismáticas.
+Ramas troncales de las ACA, ACM y ACP de aspecto en límites normales.
+Segmento V4 de a. vertebrales y arteria basilar en límites normales.
+Senos venosos no evidencian signos de trombosis.
+
+No se identifican compromisos vasculares agudos al momento del estudio.
+No hay imágenes de aneurismas, trombosis, disecciones ni malformaciones vasculares.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Angiotac cerebral",
+        "name": "AngioTC Cerebral Patológico",
+        "description": "Plantilla para angiografía por TC cerebral con ateromatosis",
+        "template_text": """{{hallazgos_cayado}} a nivel de cayado aórtico, proyectadas a vasos supraaórticos.
+Bulbos carotídeos {{bulbos}}.
+Arterias vertebrales de origen trayecto y calibre normales en todos sus segmentos cervicales.
+{{hallazgos_aci}}.
+Polígono de Willis sin dilataciones aneurismáticas.
+Ramas troncales de las ACA, ACM y ACP de aspecto en límites normales.
+Segmento V4 de a. vertebrales y arteria basilar en límites normales.
+Senos venosos no evidencian signos de trombosis.
+
+{{impresion}}.
+No hay imágenes de aneurismas, trombosis, disecciones ni malformaciones vasculares.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Macizo Facial",
+        "name": "TC Macizo Facial",
+        "description": "Plantilla para TC de macizo facial evaluación de fracturas",
+        "template_text": """Globos oculares, grasa retrobulbar, musculatura extrínseca y nervios ópticos de densitometría y morfología conservadas.
+Las paredes orbitarias sin soluciones de continuidad que sugieran fracturas.
+SPN bien neumatizados sin imágenes de fracturas parietales óseas.
+Maxilar inferior, maxilares superiores, huesos malares, frontal, esfenoidal y huesos propios nasales sin fracturas.
+
+No se identifican fracturas óseas en macizo facial.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Columna",
+        "name": "TC Columna Normal",
+        "description": "Plantilla para TC de columna sin hallazgos patológicos",
+        "template_text": """Cuerpos vertebrales de altura conservada y adecuado alineamiento de muros posteriores.
+Los discos intervertebrales de densitometría y altura habitual sin imágenes de protrusiones ni herniaciones.
+Arcos posteriores de conformación habitual.
+Articulaciones facetarias de características en límites normales.
+Neuroforaminas de amplitud normal sin conflictos de espacio radiculares.
+No hay raquiestenosis.
+
+No se identifican fracturas vertebrales en el segmento evaluado.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Oídos",
+        "name": "TC Oídos Normal",
+        "description": "Plantilla para TC de oídos sin hallazgos patológicos",
+        "template_text": """Conductos auditivos externos de trayecto y calibre en límites normales.
+En oídos medios, cajas timpánicas bien neumatizadas, cadenas osiculares y escutum sin erosiones.
+Espacios de Prussak de aspecto normal.
+Áticos, antros y celdillas mastoideas de radiotransparencia conservada.
+Tegmen timpani sin alteraciones.
+A nivel de oídos internos, ambos laberintos óseos impresionan de conformación normal.
+Cócleas, conductos semicirculares, y trayectos de nervios faciales de aspecto normal.
+Conductos auditivos internos se observan de características normales sin erosiones óseas.
+
+Estudio de oídos sin hallazgos de significado patológico.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Silla Turca",
+        "name": "TC Silla Turca - Hipófisis",
+        "description": "Plantilla para TC de silla turca con contraste",
+        "template_text": """La silla turca de morfología y dimensiones normales, sin erosiones óseas localizadas. Tallo hipofisiario en posición central junto al dorso sellar. Senos cavernosos sin alteraciones.
+Tras la administración de medio de contraste se observa un refuerzo glandular homogéneo, intraselar, con bordes superiores ligeramente cóncavos en ambos lados. Estructuras paraselares e hipotalámicas de morfología conservada.
+Cisterna supraselar dentro de límites normales.
+Vasos visibles del círculo arterial cerebral no evidencian alteraciones.
+
+Estudio de silla turca sin hallazgos de significado patológico.""",
+    },
+    {
+        "modality": "TC",
+        "region": "Órbitas",
+        "name": "TC Órbitas Normal",
+        "description": "Plantilla para TC de órbitas sin hallazgos patológicos",
+        "template_text": """Globos oculares simétricos, alineados, con cristalinos, escleras y humor vítreo de densitometría en límites normales.
+Musculatura extrínseca y nervios ópticos de características morfológicas normales.
+No hay imágenes de sustitución de grasa retrobulbar.
+Paredes orbitarias de contornos regulares.
+Glándulas lagrimales de aspecto normal.
+
+Estudio de órbitas sin hallazgos significativos.""",
+    },
 ]
 
 

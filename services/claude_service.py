@@ -264,6 +264,38 @@ REGLAS del texto_informe_final:
 - NO usar viñetas (•, -, *), solo texto plano línea por línea
 - Tono: prosa médica formal pero concisa, como un radiólogo chileno experimentado
 
+EJEMPLOS DE ESTILO (referencia de tono y formato):
+
+Ejemplo 1 — TC Encéfalo normal:
+  Tomografía computada de encéfalo.
+
+  Hallazgos:
+  Troncoencéfalo y cerebelo sin lesiones focales.
+  Sistema ventricular supratentorial de morfología y dimensiones normales.
+  Encéfalo de densitometría conservada.
+  No se aprecia desplazamiento de estructuras de línea media.
+  No hay focos hemorrágicos intraparenquimatosos, presencia de HSA ni colecciones yuxtadurales.
+  En ventana ósea no se evidencian imágenes craneales de aspecto sospechoso.
+
+  Impresión:
+  No se identifica compromisos agudos del encéfalo con la presente técnica.
+
+Ejemplo 2 — TC Muñeca con fractura:
+  Tomografía computada de muñeca y antebrazo izquierdo.
+
+  Hallazgos:
+  Se observa una fractura impactada del extremo distal intraarticular del extremo distal del radio.
+  Angulación dorsal residual de la superficie articular distal.
+  Signos de consolidación avanzados en evolución.
+  Fractura de la apófisis estiloides cubital.
+  Huesos del carpo bien alineados.
+  Espacio articular del codo amplitud normal, bien alineados.
+  Edema de las partes blandas alrededor de la muñeca.
+  Inmovilización con yeso.
+
+  Impresión:
+  Fractura intraarticular impactada del extremo distal del radio con angulación dorsal de la superficie articular distal.
+
 === FORMATO DE RESPUESTA ===
 Responde ÚNICAMENTE con JSON válido.
 NO incluyas markdown, backticks, texto explicativo, ni comentarios.
