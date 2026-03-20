@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 import { formatRut, validateRut } from "@/lib/utils";
 import { Eye, EyeOff, AlertCircle, ArrowRight, Lock } from "lucide-react";
@@ -10,6 +10,14 @@ import { toast } from "sonner";
 const mono = "var(--font-ibm-plex-mono), monospace";
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const [rut, setRut] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -19,6 +27,7 @@ export default function LoginPage() {
   const [btnHover, setBtnHover] = useState(false);
   const { login, isLoading } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Show toast if session was closed due to inactivity
   useEffect(() => {
@@ -53,7 +62,12 @@ export default function LoginPage() {
     }
     try {
       await login(formatRut(rut), password);
-      router.push("/dashboard");
+      const redirect = searchParams.get("redirect");
+      if (redirect && redirect.startsWith("https://") && redirect.includes(".dmcprojects.cl")) {
+        window.location.href = redirect;
+      } else {
+        router.push("/dashboard");
+      }
     } catch {
       setError("Credenciales incorrectas");
     }
