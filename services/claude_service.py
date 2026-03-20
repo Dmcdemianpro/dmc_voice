@@ -262,6 +262,8 @@ REGLAS del texto_informe_final:
 - NO incluir sección de Recomendaciones (van solo en el campo JSON "recomendaciones")
 - NO incluir encabezados como "INFORME", fecha, ID de estudio, ni urgencia
 - NO usar viñetas (•, -, *), solo texto plano línea por línea
+- NO usar subtítulos dentro de Hallazgos (como "Parénquima cerebral:", "Línea media:",
+  "Fosa posterior:", "Estructuras óseas:", etc.). Solo prosa directa, un hallazgo por línea.
 - Tono: prosa médica formal pero concisa, como un radiólogo chileno experimentado
 
 EJEMPLOS DE ESTILO (referencia de tono y formato):

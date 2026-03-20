@@ -15,355 +15,178 @@ TEMPLATES = [
         "region": "Cerebro",
         "name": "TC Cerebro sin contraste",
         "description": "Plantilla estándar para tomografía computada de cerebro sin contraste endovenoso",
-        "template_text": """INFORME TC DE CEREBRO SIN CONTRASTE
+        "template_text": """Tomografía computada de cerebro sin contraste.
 
-TÉCNICA:
-Se realiza estudio de tomografía computada de cerebro sin administración de medio de contraste endovenoso, con cortes axiales de {{grosor}} mm de espesor.
+Hallazgos:
+Morfología y densidad del parénquima cerebral supra e infratentorial {{hallazgos_parenquima}}.
+Sistema ventricular de tamaño y configuración {{ventrículos}}.
+Surcos y cisuras de aspecto {{surcos}}.
+Estructuras de la línea media {{linea_media}}.
+Cerebelo y tronco encefálico de aspecto {{fosa_posterior}}.
+Calota y base de cráneo {{hueso}}.
+{{otros_hallazgos}}.
 
-HALLAZGOS:
-
-Parénquima cerebral:
-- Morfología y densidad del parénquima cerebral supra e infratentorial {{hallazgos_parenquima}}.
-- Sistema ventricular de tamaño y configuración {{ventrículos}}.
-- Surcos y cisuras de aspecto {{surcos}}.
-
-Línea media:
-- Estructuras de la línea media {{linea_media}}.
-
-Fosa posterior:
-- Cerebelo y tronco encefálico de aspecto {{fosa_posterior}}.
-
-Estructuras óseas:
-- Calota y base de cráneo {{hueso}}.
-
-Otros:
-- {{otros_hallazgos}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     {
         "modality": "TC",
         "region": "Tórax",
         "name": "TC Tórax con contraste",
         "description": "Plantilla estándar para TC de tórax con contraste EV",
-        "template_text": """INFORME TC DE TÓRAX CON CONTRASTE
+        "template_text": """Tomografía computada de tórax con contraste endovenoso.
 
-TÉCNICA:
-Se realiza estudio de tomografía computada de tórax con administración de medio de contraste endovenoso, con cortes axiales de {{grosor}} mm.
+Hallazgos:
+{{mediastino}}.
+Pulmón derecho {{pulmon_derecho}}.
+Pulmón izquierdo {{pulmon_izquierdo}}.
+Tráquea y bronquios principales {{via_aerea}}.
+{{pleura}}.
+Aorta torácica {{aorta}}.
+Arteria pulmonar {{arteria_pulmonar}}.
+{{pared_toracica}}.
+{{hueso}}.
 
-HALLAZGOS:
-
-Mediastino:
-- {{mediastino}}
-
-Parénquima pulmonar:
-- Pulmón derecho: {{pulmon_derecho}}
-- Pulmón izquierdo: {{pulmon_izquierdo}}
-
-Vía aérea:
-- Tráquea y bronquios principales {{via_aerea}}.
-
-Pleura:
-- {{pleura}}
-
-Grandes vasos:
-- Aorta torácica {{aorta}}.
-- Arteria pulmonar {{arteria_pulmonar}}.
-
-Pared torácica:
-- {{pared_toracica}}
-
-Estructuras óseas:
-- {{hueso}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     {
         "modality": "TC",
         "region": "Abdomen y Pelvis",
         "name": "TC Abdomen y Pelvis con contraste",
         "description": "Plantilla estándar para TC de abdomen y pelvis con contraste oral y EV",
-        "template_text": """INFORME TC DE ABDOMEN Y PELVIS CON CONTRASTE
+        "template_text": """Tomografía computada de abdomen y pelvis con contraste oral y endovenoso.
 
-TÉCNICA:
-Se realiza estudio de tomografía computada de abdomen y pelvis con administración de medio de contraste oral y endovenoso, con cortes axiales de {{grosor}} mm.
+Hallazgos:
+{{higado}}.
+{{vesicula_biliar}}.
+{{pancreas}}.
+{{bazo}}.
+Riñón derecho {{rinon_derecho}}.
+Riñón izquierdo {{rinon_izquierdo}}.
+Glándulas suprarrenales {{suprarrenales}}.
+Aorta abdominal {{aorta}}.
+{{intestino}}.
+Vejiga {{vejiga}}.
+{{organos_pelvicos}}.
+{{peritoneo}}.
+{{adenopatias}}.
+{{hueso}}.
 
-HALLAZGOS:
-
-Hígado:
-- {{higado}}
-
-Vesícula y vía biliar:
-- {{vesicula_biliar}}
-
-Páncreas:
-- {{pancreas}}
-
-Bazo:
-- {{bazo}}
-
-Riñones y suprarrenales:
-- Riñón derecho: {{rinon_derecho}}
-- Riñón izquierdo: {{rinon_izquierdo}}
-- Glándulas suprarrenales: {{suprarrenales}}
-
-Aorta abdominal:
-- {{aorta}}
-
-Intestino:
-- {{intestino}}
-
-Pelvis:
-- Vejiga: {{vejiga}}
-- {{organos_pelvicos}}
-
-Peritoneo y retroperitoneo:
-- {{peritoneo}}
-
-Adenopatías:
-- {{adenopatias}}
-
-Estructuras óseas:
-- {{hueso}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     {
         "modality": "RM",
         "region": "Cerebro",
         "name": "RM Cerebro con y sin contraste",
         "description": "Plantilla estándar para resonancia magnética cerebral",
-        "template_text": """INFORME RM DE CEREBRO
+        "template_text": """Resonancia magnética de cerebro con y sin gadolinio endovenoso.
 
-TÉCNICA:
-Se realiza estudio de resonancia magnética de cerebro con secuencias {{secuencias}}, sin y con administración de gadolinio endovenoso.
+Hallazgos:
+Señal del parénquima cerebral supra e infratentorial {{senal_parenquima}}.
+No se observan lesiones focales con restricción en difusión {{difusion}}.
+Tras la administración de gadolinio {{realce}}.
+{{ventriculos}}.
+Surcos y cisuras {{surcos}}.
+Estructuras de la línea media {{linea_media}}.
+Hipófisis {{hipofisis}}.
+Cerebelo {{cerebelo}}.
+Tronco encefálico {{tronco}}.
 
-HALLAZGOS:
-
-Parénquima cerebral:
-- Señal del parénquima cerebral supra e infratentorial {{senal_parenquima}}.
-- No se observan lesiones focales con restricción en difusión {{difusion}}.
-- Tras la administración de gadolinio {{realce}}.
-
-Sistema ventricular:
-- {{ventriculos}}
-
-Surcos y cisuras:
-- {{surcos}}
-
-Línea media:
-- {{linea_media}}
-
-Silla turca:
-- Hipófisis {{hipofisis}}.
-
-Fosa posterior:
-- Cerebelo {{cerebelo}}.
-- Tronco encefálico {{tronco}}.
-
-Espectroscopía (si aplica):
-- {{espectroscopia}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     {
         "modality": "RM",
         "region": "Columna Lumbar",
         "name": "RM Columna Lumbar",
         "description": "Plantilla estándar para RM de columna lumbosacra",
-        "template_text": """INFORME RM DE COLUMNA LUMBAR
+        "template_text": """Resonancia magnética de columna lumbosacra.
 
-TÉCNICA:
-Se realiza estudio de resonancia magnética de columna lumbosacra con secuencias {{secuencias}} en planos sagital y axial.
+Hallazgos:
+{{alineacion}}.
+{{cuerpos_vertebrales}}.
+Disco L1-L2 {{l1l2}}.
+Disco L2-L3 {{l2l3}}.
+Disco L3-L4 {{l3l4}}.
+Disco L4-L5 {{l4l5}}.
+Disco L5-S1 {{l5s1}}.
+Canal raquídeo {{canal_raquideo}}.
+Cono medular {{cono_medular}}.
+Articulaciones facetarias {{facetarias}}.
+Partes blandas paravertebrales {{partes_blandas}}.
 
-HALLAZGOS:
-
-Alineación:
-- {{alineacion}}
-
-Cuerpos vertebrales:
-- {{cuerpos_vertebrales}}
-
-Discos intervertebrales:
-- L1-L2: {{l1l2}}
-- L2-L3: {{l2l3}}
-- L3-L4: {{l3l4}}
-- L4-L5: {{l4l5}}
-- L5-S1: {{l5s1}}
-
-Canal raquídeo:
-- {{canal_raquideo}}
-
-Médula y cono medular:
-- {{cono_medular}}
-
-Articulaciones facetarias:
-- {{facetarias}}
-
-Partes blandas paravertebrales:
-- {{partes_blandas}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     {
         "modality": "RM",
         "region": "Rodilla",
         "name": "RM Rodilla",
         "description": "Plantilla estándar para RM de rodilla",
-        "template_text": """INFORME RM DE RODILLA {{lateralidad}}
+        "template_text": """Resonancia magnética de rodilla {{lateralidad}}.
 
-TÉCNICA:
-Se realiza estudio de resonancia magnética de rodilla {{lateralidad}} con secuencias {{secuencias}} en planos sagital, coronal y axial.
+Hallazgos:
+Menisco medial {{menisco_medial}}.
+Menisco lateral {{menisco_lateral}}.
+Ligamento cruzado anterior {{lca}}.
+Ligamento cruzado posterior {{lcp}}.
+Ligamento colateral medial {{lcm}}.
+Ligamento colateral lateral {{lcl}}.
+Cartílago articular {{cartilago}}.
+Fémur distal {{femur}}.
+Platillo tibial {{tibia}}.
+Rótula {{rotula}}.
+Tendón rotuliano {{tendon_rotuliano}}.
+Tendón cuadricipital {{tendon_cuadricipital}}.
+{{liquido}}.
+Partes blandas {{partes_blandas}}.
 
-HALLAZGOS:
-
-Meniscos:
-- Menisco medial: {{menisco_medial}}
-- Menisco lateral: {{menisco_lateral}}
-
-Ligamentos cruzados:
-- LCA: {{lca}}
-- LCP: {{lcp}}
-
-Ligamentos colaterales:
-- LCM: {{lcm}}
-- LCL: {{lcl}}
-
-Cartílago articular:
-- {{cartilago}}
-
-Superficie ósea:
-- Fémur: {{femur}}
-- Tibia: {{tibia}}
-- Rótula: {{rotula}}
-
-Tendones:
-- Tendón rotuliano: {{tendon_rotuliano}}
-- Tendón cuadricipital: {{tendon_cuadricipital}}
-
-Líquido articular:
-- {{liquido}}
-
-Partes blandas:
-- {{partes_blandas}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     {
         "modality": "RX",
         "region": "Tórax",
         "name": "RX Tórax PA y Lateral",
         "description": "Plantilla estándar para radiografía de tórax",
-        "template_text": """INFORME RADIOGRAFÍA DE TÓRAX PA Y LATERAL
+        "template_text": """Radiografía de tórax PA y lateral.
 
-TÉCNICA:
-Se realiza estudio radiográfico de tórax en proyecciones PA y lateral en bipedestación.
+Hallazgos:
+{{parenquima_pulmonar}}.
+Silueta cardíaca {{silueta_cardiaca}}.
+Índice cardiotorácico {{ict}}.
+{{mediastino}}.
+Hilios pulmonares {{hilios}}.
+Diafragma {{diafragma}}.
+Senos costofrénicos {{senos_costofrenicos}}.
+{{hueso}}.
+Partes blandas {{partes_blandas}}.
 
-HALLAZGOS:
-
-Parénquima pulmonar:
-- {{parenquima_pulmonar}}
-
-Silueta cardíaca:
-- {{silueta_cardiaca}}
-- Índice cardiotorácico: {{ict}}
-
-Mediastino:
-- {{mediastino}}
-
-Hilios pulmonares:
-- {{hilios}}
-
-Diafragma:
-- {{diafragma}}
-
-Senos costofrénicos:
-- {{senos_costofrenicos}}
-
-Estructuras óseas:
-- {{hueso}}
-
-Partes blandas:
-- {{partes_blandas}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     {
         "modality": "ECO",
         "region": "Abdomen",
         "name": "Ecografía Abdominal",
         "description": "Plantilla estándar para ecografía abdominal completa",
-        "template_text": """INFORME ECOGRAFÍA ABDOMINAL
+        "template_text": """Ecografía abdominal.
 
-TÉCNICA:
-Se realiza estudio ecográfico abdominal con transductor convexo de {{frecuencia}} MHz.
+Hallazgos:
+Hígado de tamaño {{tamano_higado}}, ecogenicidad {{ecogenicidad_higado}}. {{lesiones_higado}}.
+Vesícula biliar {{vesicula}}.
+Colédoco {{coledoco}}.
+Páncreas {{pancreas}}.
+Bazo {{bazo}}.
+Riñón derecho de {{tamano_rd}} cm, {{rinon_derecho}}.
+Riñón izquierdo de {{tamano_ri}} cm, {{rinon_izquierdo}}.
+Aorta abdominal {{aorta}}.
+{{liquido_libre}}.
 
-HALLAZGOS:
-
-Hígado:
-- Tamaño {{tamano_higado}}.
-- Ecogenicidad {{ecogenicidad_higado}}.
-- {{lesiones_higado}}
-
-Vesícula biliar:
-- {{vesicula}}
-
-Vía biliar:
-- Colédoco {{coledoco}}.
-
-Páncreas:
-- {{pancreas}}
-
-Bazo:
-- {{bazo}}
-
-Riñón derecho:
-- Tamaño: {{tamano_rd}} cm.
-- {{rinon_derecho}}
-
-Riñón izquierdo:
-- Tamaño: {{tamano_ri}} cm.
-- {{rinon_izquierdo}}
-
-Aorta abdominal:
-- {{aorta}}
-
-Líquido libre:
-- {{liquido_libre}}
-
-IMPRESIÓN DIAGNÓSTICA:
-{{impresion}}
-
-RECOMENDACIONES:
-{{recomendaciones}}""",
+Impresión:
+{{impresion}}""",
     },
     # ── Neurología / Neurorradiología ─────────────────────────────────────────
     {
