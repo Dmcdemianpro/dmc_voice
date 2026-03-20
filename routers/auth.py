@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from jose import jwt
@@ -27,6 +27,27 @@ def create_refresh_token() -> tuple[str, str]:
     raw = str(uuid.uuid4())
     hashed = hashlib.sha256(raw.encode()).hexdigest()
     return raw, hashed
+
+
+@router.get("/validate")
+async def validate_token(request: Request):
+    """Lightweight JWT validation for nginx auth_request.
+    Reads X-Auth-Token header, validates signature + expiration (no DB query).
+    Returns 200 with user info headers if valid, 401 if invalid."""
+    token = request.headers.get("X-Auth-Token")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No token")
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        user_id: str = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    return Response(
+        status_code=200,
+        headers={"X-User-Id": user_id, "X-User-Role": payload.get("role", "")},
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
