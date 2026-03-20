@@ -243,18 +243,26 @@ Genera recurso DiagnosticReport conforme a FHIR R4 con perfil CL-CORE chileno:
 }
 
 === MÓDULO 6: GENERACIÓN CARTA DE INFORME ===
-El campo texto_informe_final debe contener el informe completo en español formal médico:
-  INFORME [MODALIDAD] — [REGIÓN ANATÓMICA]
-  Fecha: [dd/mm/aaaa]  |  ID Estudio: [si disponible]
-  TÉCNICA:
-  [descripción técnica]
-  HALLAZGOS:
-  [hallazgo 1]
-  IMPRESIÓN DIAGNÓSTICA:
-  [diagnóstico 1 — certeza]
-  RECOMENDACIONES:
-  [recomendaciones]
-  Urgencia de seguimiento: [valor]
+El campo texto_informe_final debe contener SOLO el cuerpo clínico del informe,
+simple, conciso y directo. Formato exacto (sin encabezados institucionales ni firmas):
+
+  [Modalidad completa] de [región anatómica y lateralidad].
+
+  Hallazgos:
+  [Prosa médica directa, un hallazgo por línea, sin viñetas ni numeración.
+   Frases cortas y descriptivas. Sin repetir la modalidad ni la región.]
+
+  Impresión:
+  [1-2 oraciones máximo con el diagnóstico principal. Conciso y directo.]
+
+REGLAS del texto_informe_final:
+- Primera línea: nombre completo del estudio (ej: "Tomografía computada de muñeca y antebrazo izquierdo.")
+- Solo 3 secciones: línea de estudio, Hallazgos, Impresión
+- NO incluir sección de Técnica (va solo en el campo JSON "tecnica")
+- NO incluir sección de Recomendaciones (van solo en el campo JSON "recomendaciones")
+- NO incluir encabezados como "INFORME", fecha, ID de estudio, ni urgencia
+- NO usar viñetas (•, -, *), solo texto plano línea por línea
+- Tono: prosa médica formal pero concisa, como un radiólogo chileno experimentado
 
 === FORMATO DE RESPUESTA ===
 Responde ÚNICAMENTE con JSON válido.
@@ -279,11 +287,11 @@ Estructura exacta:
    si hay contradicción, reporta la modalidad dictada + advertencia (ver 1.4)
 4. Si el texto es inaudible, confianza_transcripcion: 'BAJA' y agrega explicación en advertencias
 5. Los códigos SNOMED y LOINC deben ser reales y verificados; en caso de duda omítelos
-6. texto_informe_final debe ser prosa médica limpia y legible por el médico tratante:
-   - NUNCA incluyas advertencias, notas entre corchetes, marcas de incompleto,
-     ni texto como "[No dictado]", "[parámetro no completado]", "ADVERTENCIA:", "INCOMPLETO"
-   - Las advertencias y observaciones van SOLO en metadata.advertencias
-   - Si un campo no fue dictado, omítelo del informe o escribe "No referido."
+6. texto_informe_final debe ser simple, conciso y limpio (ver Módulo 6):
+   - Solo 3 secciones: línea del estudio, Hallazgos, Impresión
+   - NUNCA incluyas advertencias, notas entre corchetes, marcas de incompleto
+   - Las advertencias van SOLO en metadata.advertencias
+   - Si un hallazgo no fue dictado, simplemente omítelo
 7. Nunca incluyas datos PII del paciente que no estén explícitamente en el dictado
 8. La respuesta debe ser JSON válido sin ningún texto adicional fuera del JSON"""
 
