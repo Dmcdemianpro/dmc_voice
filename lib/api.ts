@@ -48,6 +48,7 @@ api.interceptors.response.use(
         const { access_token, refresh_token: newRt } = res.data;
         localStorage.setItem("access_token", access_token);
         localStorage.setItem("refresh_token", newRt);
+        document.cookie = `rv_token=${access_token}; domain=.dmcprojects.cl; path=/; secure; samesite=lax; max-age=28800`;
         queue.forEach((p) => p.resolve(access_token));
         queue = [];
         original.headers.Authorization = `Bearer ${access_token}`;
@@ -58,6 +59,7 @@ api.interceptors.response.use(
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
         localStorage.removeItem("ris-auth"); // Clear zustand persist data too
+        document.cookie = "rv_token=; domain=.dmcprojects.cl; path=/; max-age=0";
         if (typeof window !== "undefined") window.location.href = "/login";
         return Promise.reject(e);
       } finally {

@@ -26,6 +26,7 @@ export const useAuthStore = create<AuthState>()(
       setTokens: (access, refresh, user) => {
         localStorage.setItem("access_token", access);
         localStorage.setItem("refresh_token", refresh);
+        document.cookie = `rv_token=${access}; domain=.dmcprojects.cl; path=/; secure; samesite=lax; max-age=28800`;
         set({ accessToken: access, refreshToken: refresh, user, isAuthenticated: true });
       },
 
@@ -46,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
         }
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
+        document.cookie = "rv_token=; domain=.dmcprojects.cl; path=/; max-age=0";
         set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
       },
     }),
