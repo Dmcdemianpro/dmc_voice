@@ -53,6 +53,13 @@ function LoginForm() {
     }
   }, []);
 
+  const redirect = searchParams.get("redirect");
+  const redirectTarget = redirect?.includes("visor.dmcprojects.cl")
+    ? { label: "Visor DICOM", color: "#38bdf8" }
+    : redirect?.includes("pacs.dmcprojects.cl")
+      ? { label: "Admin PACS", color: "#f59e0b" }
+      : null;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -62,7 +69,6 @@ function LoginForm() {
     }
     try {
       await login(formatRut(rut), password);
-      const redirect = searchParams.get("redirect");
       if (redirect && redirect.startsWith("https://") && redirect.includes(".dmcprojects.cl")) {
         window.location.href = redirect;
       } else {
@@ -114,6 +120,30 @@ function LoginForm() {
           Ingresa tus credenciales para acceder<br />
           al sistema RIS Voice<span style={{ color: "rgba(0,212,255,0.8)" }}>.</span>AI
         </p>
+
+        {redirectTarget && (
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: "8px",
+            marginTop: "14px",
+            padding: "6px 14px 6px 10px",
+            background: `${redirectTarget.color}0a`,
+            border: `1px solid ${redirectTarget.color}25`,
+            borderRadius: "6px",
+          }}>
+            <span style={{
+              width: 5, height: 5, borderRadius: "50%",
+              background: redirectTarget.color,
+              boxShadow: `0 0 6px ${redirectTarget.color}`,
+              display: "inline-block",
+            }} />
+            <span style={{
+              fontSize: "10px", color: redirectTarget.color,
+              letterSpacing: "0.08em",
+            }}>
+              Accediendo a <strong>{redirectTarget.label}</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── Form ── */}
