@@ -421,6 +421,26 @@ def _analizar_rm_multislice(pixel_arrays: list[tuple]) -> dict:
     }
 
 
+# ── Helpers de presentación ────────────────────────────────────────────────
+
+# Umbral mínimo de porcentaje para mostrar una banda de atenuación
+_MIN_PCT_DISPLAY = 0.1
+
+
+def _region_display(parte_del_cuerpo: str) -> str:
+    """Retorna texto de región con concordancia de género."""
+    if not parte_del_cuerpo or parte_del_cuerpo == "No especificado":
+        return "No especificada"
+    return parte_del_cuerpo
+
+
+def _serie_display(descripcion_serie: str) -> str:
+    """Retorna nombre de serie, nunca vacío."""
+    if not descripcion_serie or descripcion_serie.strip() in ("", "No especificado"):
+        return "No descrita"
+    return descripcion_serie.strip()
+
+
 # ── Evaluación de confianza y prioridad por serie ─────────────────────────
 
 # Display labels for distribution keys (neutral, user-facing)
@@ -472,14 +492,16 @@ def _evaluar_confianza_serie(serie: dict) -> dict:
     util_reporte = "sí" if confianza_anat in ("alta", "media") and n_analizados >= 3 else "no"
 
     # ── Contenido extracraneal ──
+    # Heurística: pct_extra (banda -700 a -200 HU) es el indicador principal.
+    # El aire alto es normal en TC de cabeza, así que requiere umbral más exigente.
     contenido_extra = "bajo"
     if cuant and cuant.get("distribucion_atenuacion"):
         dist = cuant["distribucion_atenuacion"]
         pct_aire = dist.get("aire", {}).get("porcentaje", 0)
         pct_extra = dist.get("baja_atenuacion_extracraneal", {}).get("porcentaje", 0)
-        if pct_extra > 10 or pct_aire > 40:
+        if pct_extra > 15 or (pct_extra > 10 and pct_aire > 50):
             contenido_extra = "alto"
-        elif pct_extra > 5 or pct_aire > 20:
+        elif pct_extra > 5 or pct_aire > 40:
             contenido_extra = "moderado"
 
     return {
@@ -525,8 +547,12 @@ def _construir_limitaciones(series_priorizadas: list[dict], total_instancias: in
     for i, serie in enumerate(series_priorizadas):
         ev = serie.get("_evaluacion", {})
         if ev.get("confianza_anatomica") == "baja":
-            desc = serie.get("metadata_tecnica", {}).get("descripcion_serie", f"Serie {i+1}")
-            limitaciones.append(f"Serie \"{desc}\" con baja confianza anatómica.")
+            raw_desc = serie.get("metadata_tecnica", {}).get("descripcion_serie", "")
+            desc = _serie_display(raw_desc)
+            if i > 0:
+                limitaciones.append(f"Serie secundaria con baja confianza anatómica.")
+            else:
+                limitaciones.append(f"Serie \"{desc}\" con baja confianza anatómica.")
 
     limitaciones.append("La caracterización anatómica definitiva requiere revisión directa de las imágenes.")
 
@@ -554,7 +580,7 @@ def construir_contexto_multiserie(
         "ANÁLISIS DICOM",
         "",
         f"Modalidad: {meta['modalidad']}",
-        f"Región: {meta['parte_del_cuerpo']}",
+        f"Región: {_region_display(meta['parte_del_cuerpo'])}",
         f"Descripción del estudio: {meta['descripcion_estudio']}",
         f"Equipo: {meta['fabricante']} {meta['modelo_equipo']}",
         f"Institución: {meta['institucion']}",
@@ -572,7 +598,7 @@ def construir_contexto_multiserie(
         ev = serie.get("_evaluacion", {})
         n_anal = serie.get("n_cortes_analizados", "?")
         n_total = serie.get("n_cortes_total", "?")
-        desc = s_meta.get("descripcion_serie", "Sin descripción")
+        desc = _serie_display(s_meta.get("descripcion_serie", ""))
 
         if i == 0:
             label = "Serie prioritaria para evaluación"
@@ -604,8 +630,10 @@ def construir_contexto_multiserie(
             dist = s_cuant["distribucion_atenuacion"]
             for key in HU_RANGES_TC:
                 if key in dist:
-                    label_name = _DIST_LABELS.get(key, key)
                     pct = dist[key]["porcentaje"]
+                    if pct < _MIN_PCT_DISPLAY:
+                        continue
+                    label_name = _DIST_LABELS.get(key, key)
                     hu_m = dist[key].get("hu_media")
                     line = f"- {label_name}: {pct}%"
                     if hu_m is not None:
@@ -651,19 +679,29 @@ def construir_contexto_multiserie(
 
     # Resumen técnico priorizado
     serie_prio = series_priorizadas[0]
-    desc_prio = serie_prio.get("metadata_tecnica", {}).get("descripcion_serie", "Serie principal")
+    desc_prio = _serie_display(serie_prio.get("metadata_tecnica", {}).get("descripcion_serie", ""))
     lineas += [
         "",
         "Resumen técnico priorizado:",
-        f"- Serie prioritaria para evaluación: {desc_prio}",
+        f"- Serie prioritaria para evaluación: {desc_prio}.",
     ]
 
     # Collect observations from priority series
     cuant_prio = serie_prio.get("analisis_cuantitativo")
     if cuant_prio and cuant_prio.get("observaciones"):
         obs_list = cuant_prio["observaciones"]
-        bandas_str = "; ".join(obs_list)
-        lineas.append(f"- Se identifican focos en bandas de atenuación: {bandas_str}")
+        # Extract band names for concise summary
+        bandas_resumen = []
+        for obs in obs_list:
+            if "100–400 HU" in obs:
+                bandas_resumen.append("100–400 HU")
+            elif ">1000 HU" in obs:
+                bandas_resumen.append(">1000 HU")
+            elif "50–100 HU" in obs:
+                bandas_resumen.append("50–100 HU")
+            else:
+                bandas_resumen.append(obs)
+        lineas.append(f"- Se identifican focos en bandas de atenuación {' y '.join(bandas_resumen)}.")
     else:
         lineas.append("- No se identifican focos relevantes en bandas de atenuación.")
 
@@ -692,7 +730,7 @@ def construir_contexto_para_claude(analisis: dict) -> str:
         "ANÁLISIS DICOM",
         "",
         f"Modalidad: {meta['modalidad']}",
-        f"Región: {meta['parte_del_cuerpo']}",
+        f"Región: {_region_display(meta['parte_del_cuerpo'])}",
         f"Descripción del estudio: {meta['descripcion_estudio']}",
         f"Equipo: {meta['fabricante']} {meta['modelo_equipo']}",
         f"Institución: {meta['institucion']}",
@@ -703,7 +741,7 @@ def construir_contexto_para_claude(analisis: dict) -> str:
         f"- Imágenes analizadas por muestreo: {n_analizados or '?'}",
         "",
         "Serie prioritaria para evaluación:",
-        f"- Serie: {meta.get('descripcion_serie', 'Sin descripción')}",
+        f"- Serie: {_serie_display(meta.get('descripcion_serie', ''))}",
         f"- Cortes analizados: {n_analizados or '?'} de {n_total or '?'}",
         f"- Grosor de corte: {meta['grosor_corte_mm']} mm",
         f"- Espaciado de píxeles: {meta['espaciado_pixeles']}",
@@ -722,8 +760,10 @@ def construir_contexto_para_claude(analisis: dict) -> str:
         dist = cuant["distribucion_atenuacion"]
         for key in HU_RANGES_TC:
             if key in dist:
-                label_name = _DIST_LABELS.get(key, key)
                 pct = dist[key]["porcentaje"]
+                if pct < _MIN_PCT_DISPLAY:
+                    continue
+                label_name = _DIST_LABELS.get(key, key)
                 hu_m = dist[key].get("hu_media")
                 line = f"- {label_name}: {pct}%"
                 if hu_m is not None:
@@ -773,16 +813,26 @@ def construir_contexto_para_claude(analisis: dict) -> str:
         lineas.append(f"- {lim}")
 
     # Resumen técnico priorizado
-    desc_serie = meta.get("descripcion_serie", "Serie principal")
+    desc_serie = _serie_display(meta.get("descripcion_serie", ""))
     lineas += [
         "",
         "Resumen técnico priorizado:",
-        f"- Serie prioritaria para evaluación: {desc_serie}",
+        f"- Serie prioritaria para evaluación: {desc_serie}.",
     ]
 
     if cuant and cuant.get("observaciones"):
-        bandas_str = "; ".join(cuant["observaciones"])
-        lineas.append(f"- Se identifican focos en bandas de atenuación: {bandas_str}")
+        obs_list = cuant["observaciones"]
+        bandas_resumen = []
+        for obs in obs_list:
+            if "100–400 HU" in obs:
+                bandas_resumen.append("100–400 HU")
+            elif ">1000 HU" in obs:
+                bandas_resumen.append(">1000 HU")
+            elif "50–100 HU" in obs:
+                bandas_resumen.append("50–100 HU")
+            else:
+                bandas_resumen.append(obs)
+        lineas.append(f"- Se identifican focos en bandas de atenuación {' y '.join(bandas_resumen)}.")
     else:
         lineas.append("- No se identifican focos relevantes en bandas de atenuación.")
 
