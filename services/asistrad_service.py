@@ -84,11 +84,33 @@ EXTRACTION_SYSTEM_PROMPT = """Eres un sistema de extracción de hallazgos radiol
 7. NO agregar material metálico si no se describe explícitamente.
 8. Las bandas de atenuación cuantitativas (ej: "banda 50-100 HU elevada") son datos neutros — NO interpretarlos como diagnóstico.
 
-=== CONTEXTO CLÍNICO ===
-- Si se proporciona contexto clínico (sospecha, antecedentes), trátalo como CONTEXTO NO VINCULANTE.
-- La imagen manda, la clínica contextualiza.
-- NO dejes que una sospecha clínica (ej: "sospecha de hemorragia") determine el hallazgo_principal.
-- El hallazgo_principal debe basarse en lo que DESCRIBE el análisis cuantitativo, no en la sospecha.
+=== JERARQUÍA DE FUENTES (OBLIGATORIO) ===
+Recibirás hasta 3 fuentes de información, cada una con su nivel de prioridad:
+
+[FUENTE PRIMARIA — MÁXIMA PRIORIDAD] HALLAZGOS DEL RADIÓLOGO:
+- Lo que el radiólogo observa directamente. Es la fuente MÁS confiable.
+- Si el radiólogo describe un hallazgo, ese ES el hallazgo_principal.
+- NUNCA contradigas al radiólogo con datos de otras fuentes.
+
+[FUENTE SECUNDARIA — ORIENTA, NO DECIDE] CONTEXTO CLÍNICO:
+- Sospecha clínica, antecedentes, motivo de estudio.
+- ORIENTA la búsqueda, pero NO determina el diagnóstico.
+- Si el contexto dice "sospecha de hemorragia" pero no hay evidencia → NO clasificar como hemorrágico.
+- NUNCA dejes que una sospecha clínica sobreescriba los hallazgos observados.
+
+[FUENTE COMPLEMENTARIA — NO DIAGNÓSTICA] ANÁLISIS DICOM TÉCNICO:
+- Datos cuantitativos automáticos (bandas de atenuación, distribución HU).
+- COMPLEMENTA a las otras fuentes, NUNCA impone diagnóstico.
+- Los porcentajes de atenuación NO son diagnósticos por sí solos.
+
+=== RESOLUCIÓN DE CONFLICTOS ===
+1. Si RADIÓLOGO dice X y DICOM sugiere Y → seguir al RADIÓLOGO.
+2. Si RADIÓLOGO dice X y CLÍNICA dice Y → seguir al RADIÓLOGO.
+3. Si solo hay CLÍNICA (sin radiólogo) y DICOM → seguir DICOM (imagen > sospecha).
+4. Si CLÍNICA dice "hemorragia" pero DICOM no muestra hiperdensidad → hallazgo_principal = "indeterminado".
+5. Si hay conflicto irresoluble entre fuentes → hallazgo_principal = "indeterminado".
+6. Siempre indicar en "fuente_principal_utilizada" cuál fuente determinó el hallazgo_principal.
+7. Si hubo conflicto, describirlo en "conflicto_entre_fuentes".
 
 === CONFIABILIDAD ===
 - Asigna "confianza_anatomica" según qué tan precisa es la localización: "alta" si hay región clara, "baja" si es difusa o no descrita.
@@ -125,7 +147,9 @@ EXTRACTION_SCHEMAS: dict[str, dict[str, str]] = {
   "confianza_global": "alta | media | baja — confianza general en la extracción (alta: dato claro; baja: ambiguo o insuficiente)",
   "limitaciones": ["lista de factores que limitan la interpretación, ej: 'pocas series analizadas', 'sin contraste', 'artefacto de movimiento'"],
   "evidencia_textual": ["citas textuales del contexto de entrada que sustentan cada hallazgo"],
-  "series_fuente": ["identificadores o descripciones de las series usadas para la extracción"]
+  "series_fuente": ["identificadores o descripciones de las series usadas para la extracción"],
+  "fuente_principal_utilizada": "hallazgos_radiologo | contexto_clinico | analisis_dicom | ninguna",
+  "conflicto_entre_fuentes": "descripción del conflicto entre fuentes, o 'sin conflicto'"
 }"""
     }
 }
@@ -155,6 +179,18 @@ def _get_extraction_schema(modality: str, region: str) -> str:
     return GENERIC_EXTRACTION_SCHEMA
 
 
+def _extract_pure_clinical_context(clinical_context: str) -> str:
+    """Extrae solo el contexto clínico puro, sin las secciones DICOM ni hallazgos.
+
+    El frontend concatena con marcadores "--- Análisis DICOM automático ---"
+    y "--- Hallazgos del radiólogo ---". Separar.
+    """
+    if not clinical_context:
+        return ""
+    parts = clinical_context.split("\n--- ")
+    return parts[0].strip()
+
+
 async def extract_findings(
     study_info: Optional[dict],
     clinical_context: Optional[str],
@@ -165,19 +201,43 @@ async def extract_findings(
     client = _get_client()
     schema = _get_extraction_schema(modality, region)
 
-    # Armar el input para extracción
+    # Separar las 3 fuentes de información
+    hallazgos_radiologo = study_info.get("hallazgos_clinicos", "") if study_info else ""
+    dicom_analysis = study_info.get("dicom_analysis", "") if study_info else ""
+    pure_context = _extract_pure_clinical_context(clinical_context or "")
+
+    # Armar el input con etiquetas de prioridad
     parts = []
     parts.append(f"=== MODALIDAD: {modality} | REGIÓN: {region} ===\n")
 
-    if study_info:
-        parts.append("=== INFORMACIÓN DEL ESTUDIO ===")
-        for k, v in study_info.items():
-            if v:
-                parts.append(f"- {k}: {v}")
+    # FUENTE PRIMARIA — Hallazgos del radiólogo
+    if hallazgos_radiologo:
+        parts.append("=== [FUENTE PRIMARIA — MÁXIMA PRIORIDAD] HALLAZGOS DEL RADIÓLOGO ===")
+        parts.append(hallazgos_radiologo)
         parts.append("")
 
-    if clinical_context:
-        parts.append(f"=== CONTEXTO CLÍNICO ===\n{clinical_context}\n")
+    # FUENTE SECUNDARIA — Contexto clínico
+    if pure_context:
+        parts.append("=== [FUENTE SECUNDARIA — ORIENTA, NO DECIDE] CONTEXTO CLÍNICO ===")
+        parts.append(pure_context)
+        parts.append("")
+
+    # FUENTE COMPLEMENTARIA — Análisis DICOM técnico
+    if dicom_analysis:
+        parts.append("=== [FUENTE COMPLEMENTARIA — NO DIAGNÓSTICA] ANÁLISIS DICOM TÉCNICO ===")
+        parts.append(dicom_analysis)
+        parts.append("")
+
+    # Metadatos adicionales del estudio (patient, study_description, etc.)
+    if study_info:
+        meta_keys = [k for k in study_info if k not in ("hallazgos_clinicos", "dicom_analysis")]
+        if meta_keys:
+            parts.append("=== METADATOS DEL ESTUDIO ===")
+            for k in meta_keys:
+                v = study_info[k]
+                if v:
+                    parts.append(f"- {k}: {v}")
+            parts.append("")
 
     parts.append(f"=== SCHEMA JSON DE SALIDA ===\n{schema}\n")
     parts.append("Extrae los hallazgos del contexto anterior y responde SOLO con el JSON.")
@@ -257,6 +317,12 @@ def classify_finding(findings: dict) -> str:
         logger.info("Clasificación → indeterminado (confianza_global=baja)")
         return "indeterminado"
 
+    # Conflicto entre fuentes → indeterminado
+    conflicto = str(findings.get("conflicto_entre_fuentes", "sin conflicto")).strip().lower()
+    if conflicto and conflicto not in ("sin conflicto", "no", "ninguno", ""):
+        logger.info("Clasificación → indeterminado (conflicto entre fuentes: %s)", conflicto)
+        return "indeterminado"
+
     # Detectar conflicto isquemia/hemorragia en el mismo texto
     has_isq = any(kw in normalized for kw in ("isquem", "hipodens", "infarto"))
     has_hem = any(kw in normalized for kw in ("hemorrag", "hematoma", "sangr", "hiperdens"))
@@ -290,6 +356,49 @@ def classify_finding(findings: dict) -> str:
         return "hemorragico"
 
     return "indeterminado"
+
+
+def determine_redaction_mode(findings: dict) -> str:
+    """Determina el modo de redacción según la suficiencia anatómica del JSON.
+
+    - "clasico": hay sustento anatómico suficiente para un informe radiológico completo.
+    - "limitado": solo hay datos cuantitativos, baja confianza o sin anatomía → informe breve y prudente.
+    """
+    hallazgo = _strip_accents(str(findings.get("hallazgo_principal", "")).strip().lower())
+
+    # Normal siempre tiene sustento (describe normalidad anatómica)
+    if hallazgo in ("normal", "sin hallazgos", "sin alteraciones", "sin patologia"):
+        return "clasico"
+
+    confianza_anat = _strip_accents(str(findings.get("confianza_anatomica", "")).strip().lower())
+    localizacion = str(findings.get("localizacion", "no descrito")).strip().lower()
+    lateralidad = str(findings.get("lateralidad", "no descrito")).strip().lower()
+    descripcion = _strip_accents(str(findings.get("descripcion_hallazgo", "")).strip().lower())
+
+    # Confianza anatómica baja → siempre limitado
+    if confianza_anat == "baja":
+        return "limitado"
+
+    # Sin localización real → limitado (a menos que sea normal ya capturado arriba)
+    has_localizacion = localizacion not in ("no descrito", "no aplica", "")
+    has_lateralidad = lateralidad not in ("no descrito", "")
+
+    if not has_localizacion and not has_lateralidad:
+        return "limitado"
+
+    # Descripción solo menciona datos cuantitativos sin anatomía → limitado
+    quant_only_markers = ("banda", "atenuacion", "hu ", "porcentaje", "distribucion")
+    anat_markers = ("nucleo", "lenticular", "frontal", "parietal", "temporal",
+                    "occipital", "cerebelo", "tronco", "ventricular", "silvian",
+                    "capsul", "talamo", "ganglios basales", "cortical",
+                    "linea media", "fosa posterior", "calota", "parenquima")
+    has_anat = any(m in descripcion for m in anat_markers)
+    has_quant_only = any(m in descripcion for m in quant_only_markers) and not has_anat
+
+    if has_quant_only:
+        return "limitado"
+
+    return "clasico"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -364,6 +473,16 @@ Hallazgos:
 
 Impresión:
 {resumen neutra y cautelosa — sugerir correlación clínica y eventual estudio complementario}""",
+
+            "_limitado": """Tomografía computada de encéfalo sin contraste.
+
+Hallazgos:
+{describir brevemente los datos cuantitativos disponibles sin asumir localización anatómica precisa}
+{mencionar limitaciones del análisis según JSON}
+{NO describir estructuras anatómicas que no estén explícitamente confirmadas}
+
+Impresión:
+{resumen sobrio indicando que los hallazgos requieren revisión directa de imágenes y correlación clínica}""",
         }
     }
 }
@@ -417,6 +536,26 @@ Redacta como un radiólogo de staff: prosa directa, frases cortas, sin relleno.
 === SECCIONES QUE NO DEBEN APARECER ===
 - NO incluir sección "Técnica", "Indicación clínica", "Recomendaciones", encabezados, firmas.
 
+=== MODOS DE REDACCIÓN ===
+El usuario te indicará el MODO DE REDACCIÓN. Es OBLIGATORIO seguirlo.
+
+MODO RADIOLÓGICO CLÁSICO:
+- Redacta como un radiólogo de staff: frases breves, hallazgos anatómicos concretos, impresión directa.
+- NO mencionar análisis automatizado, confianza diagnóstica, bandas HU ni limitaciones computacionales.
+- El informe debe parecer escrito por un humano que revisó las imágenes.
+
+MODO INFORME LIMITADO:
+- NO intentar sonar como un informe radiológico anatómico completo.
+- NO inventar estructuras, lesiones ni localización anatómica que no esté en el JSON.
+- Emitir un informe breve, prudente y conservador.
+- Usar frases como:
+  "Estudio limitado para caracterización definitiva."
+  "Focos de [alta/baja] atenuación no caracterizables con los datos disponibles."
+  "Se sugiere revisión directa de las imágenes para correlación anatómica."
+  "Los hallazgos disponibles no permiten una caracterización definitiva."
+- NO redactar impresiones diagnósticas firmes.
+- Mencionar las limitaciones explícitamente.
+
 === SALIDA ===
 Responde ÚNICAMENTE con el texto del informe. Sin markdown, sin explicaciones."""
 
@@ -428,6 +567,7 @@ async def generate_report_from_findings(
     db: AsyncSession,
     modality: str,
     region: str,
+    redaction_mode: str = "clasico",
 ) -> tuple[str, str]:
     """Paso 3: JSON + plantilla categoría → informe final (Claude call 2).
     Retorna (informe_texto, prompt_enviado).
@@ -438,6 +578,11 @@ async def generate_report_from_findings(
     examples = await _get_fewshot_examples_by_modality(db, modality, region)
 
     parts = []
+
+    # Modo de redacción (ANTES de todo lo demás)
+    mode_label = "RADIOLÓGICO CLÁSICO" if redaction_mode == "clasico" else "INFORME LIMITADO"
+    parts.append(f"=== MODO DE REDACCIÓN: {mode_label} ===")
+    parts.append(f"OBLIGATORIO: Redactar en modo {mode_label}.\n")
 
     # Few-shot examples
     if examples:
@@ -525,6 +670,21 @@ def validate_report_consistency(report: str, findings: dict, category: str) -> l
         if "sin efecto de masa" not in report_lower and "no se identifica efecto de masa" not in report_lower:
             violations.append("Informe menciona efecto de masa pero JSON indica 'ausente'")
 
+    # 6. Si fuente principal fue radiólogo, verificar coherencia con hallazgo_principal
+    fuente = str(findings.get("fuente_principal_utilizada", "")).strip().lower()
+    if "radiologo" in fuente:
+        hallazgo = _strip_accents(str(findings.get("hallazgo_principal", "")).lower())
+        # Si radiólogo dijo isquémico, informe no debe mencionar hemorrágico
+        if "isquem" in hallazgo:
+            for term in ["hematoma", "hemorragia", "sangrado agudo"]:
+                if term in report_lower and "sin " + term not in report_lower:
+                    violations.append(f"Radiólogo indicó hallazgo isquémico pero informe menciona '{term}'")
+        # Viceversa
+        if "hemorrag" in hallazgo or "hematoma" in hallazgo:
+            for term in ["isquemia", "infarto cerebral"]:
+                if term in report_lower and "sin " + term not in report_lower:
+                    violations.append(f"Radiólogo indicó hallazgo hemorrágico pero informe menciona '{term}'")
+
     return violations
 
 
@@ -539,14 +699,14 @@ async def generate_pre_report(
     db: AsyncSession,
     modality: Optional[str] = None,
     region: Optional[str] = None,
-) -> tuple[str, str, Optional[dict], Optional[str]]:
+) -> tuple[str, str, Optional[dict], Optional[str], Optional[dict]]:
     """
     Genera un pre-informe radiológico.
 
     Si la modalidad/región tiene schema de extracción → pipeline 3 pasos.
     Si no → pipeline legacy (1 paso con plantilla).
 
-    Retorna (pre_report_text, prompt_sent, findings_json, finding_category).
+    Retorna (pre_report_text, prompt_sent, findings_json, finding_category, pipeline_metadata).
     """
     # Resolver modalidad/región
     mod = modality or (template.modality if template else "")
@@ -564,10 +724,28 @@ async def generate_pre_report(
         category = classify_finding(findings_json)
         logger.info("Clasificación: %s", category)
 
+        # Construir metadata de trazabilidad
+        pipeline_metadata = {
+            "fuente_principal_utilizada": findings_json.get("fuente_principal_utilizada", "no especificada"),
+            "conflicto_entre_fuentes": findings_json.get("conflicto_entre_fuentes", "sin conflicto"),
+            "categoria_original": category,
+            "modo_redaccion": redaction_mode,
+            "hubo_regeneracion": False,
+            "violaciones_detectadas": [],
+        }
+
+        # Paso 2.5: Determinar modo de redacción
+        redaction_mode = determine_redaction_mode(findings_json)
+        logger.info("Modo de redacción: %s", redaction_mode)
+
         # Paso 3: Seleccionar plantilla por categoría y redactar
-        category_template = get_category_template(mod, reg, category)
+        if redaction_mode == "limitado":
+            category_template = get_category_template(mod, reg, "_limitado")
+        else:
+            category_template = get_category_template(mod, reg, category)
         report, prompt_sent = await generate_report_from_findings(
-            findings_json, category_template, category, db, mod, reg
+            findings_json, category_template, category, db, mod, reg,
+            redaction_mode=redaction_mode,
         )
 
         # Paso 4: Validación post-generación
@@ -575,10 +753,14 @@ async def generate_pre_report(
         if violations:
             logger.warning("Validación post-generación detectó %d inconsistencias: %s",
                            len(violations), "; ".join(violations))
+            pipeline_metadata["hubo_regeneracion"] = True
+            pipeline_metadata["violaciones_detectadas"] = violations
+            pipeline_metadata["categoria_post_validacion"] = "indeterminado"
             # Regenerar con plantilla indeterminada (cautelosa)
             fallback_template = get_category_template(mod, reg, "indeterminado")
             report, prompt_sent = await generate_report_from_findings(
-                findings_json, fallback_template, "indeterminado", db, mod, reg
+                findings_json, fallback_template, "indeterminado", db, mod, reg,
+                redaction_mode=redaction_mode,
             )
             # Segunda validación — si falla de nuevo, agregar advertencia
             violations_2 = validate_report_consistency(report, findings_json, "indeterminado")
@@ -586,14 +768,14 @@ async def generate_pre_report(
                 logger.error("Validación falló 2 veces: %s", "; ".join(violations_2))
                 report = report + "\n\n[ADVERTENCIA: Este informe requiere revisión manual por inconsistencias detectadas automáticamente.]"
 
-        return report, prompt_sent, findings_json, category
+        return report, prompt_sent, findings_json, category, pipeline_metadata
     else:
         # ── PIPELINE LEGACY (1 paso) ──
         if template is None:
             raise ValueError("Se requiere template_id para modalidades sin clasificación automática")
 
         report, prompt_sent = await _legacy_generate(template, clinical_context, study_info, db)
-        return report, prompt_sent, None, None
+        return report, prompt_sent, None, None, None
 
 
 # ══════════════════════════════════════════════════════════════════════════════

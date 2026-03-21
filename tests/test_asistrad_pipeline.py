@@ -55,6 +55,11 @@ def classify_finding(findings: dict) -> str:
     if confianza_global == "baja":
         return "indeterminado"
 
+    # Conflicto entre fuentes → indeterminado
+    conflicto = str(findings.get("conflicto_entre_fuentes", "sin conflicto")).strip().lower()
+    if conflicto and conflicto not in ("sin conflicto", "no", "ninguno", ""):
+        return "indeterminado"
+
     # Detectar conflicto isquemia/hemorragia en el mismo texto
     has_isq = any(kw in normalized for kw in ("isquem", "hipodens", "infarto"))
     has_hem = any(kw in normalized for kw in ("hemorrag", "hematoma", "sangr", "hiperdens"))
@@ -87,6 +92,41 @@ def classify_finding(findings: dict) -> str:
     return "indeterminado"
 
 
+def determine_redaction_mode(findings: dict) -> str:
+    """Determina el modo de redacción — mirrors asistrad_service.py"""
+    hallazgo = _strip_accents(str(findings.get("hallazgo_principal", "")).strip().lower())
+
+    if hallazgo in ("normal", "sin hallazgos", "sin alteraciones", "sin patologia"):
+        return "clasico"
+
+    confianza_anat = _strip_accents(str(findings.get("confianza_anatomica", "")).strip().lower())
+    localizacion = str(findings.get("localizacion", "no descrito")).strip().lower()
+    lateralidad = str(findings.get("lateralidad", "no descrito")).strip().lower()
+    descripcion = _strip_accents(str(findings.get("descripcion_hallazgo", "")).strip().lower())
+
+    if confianza_anat == "baja":
+        return "limitado"
+
+    has_localizacion = localizacion not in ("no descrito", "no aplica", "")
+    has_lateralidad = lateralidad not in ("no descrito", "")
+
+    if not has_localizacion and not has_lateralidad:
+        return "limitado"
+
+    quant_only_markers = ("banda", "atenuacion", "hu ", "porcentaje", "distribucion")
+    anat_markers = ("nucleo", "lenticular", "frontal", "parietal", "temporal",
+                    "occipital", "cerebelo", "tronco", "ventricular", "silvian",
+                    "capsul", "talamo", "ganglios basales", "cortical",
+                    "linea media", "fosa posterior", "calota", "parenquima")
+    has_anat = any(m in descripcion for m in anat_markers)
+    has_quant_only = any(m in descripcion for m in quant_only_markers) and not has_anat
+
+    if has_quant_only:
+        return "limitado"
+
+    return "clasico"
+
+
 CATEGORY_TEMPLATES = {
     "TC": {
         "Cerebro": {
@@ -95,9 +135,18 @@ CATEGORY_TEMPLATES = {
             "hemorragico": "plantilla_hemorragica",
             "traumatico": "plantilla_traumatica",
             "indeterminado": "plantilla_indeterminada",
+            "_limitado": "plantilla_limitada",
         }
     }
 }
+
+
+def _extract_pure_clinical_context(clinical_context: str) -> str:
+    """Mirrors asistrad_service._extract_pure_clinical_context."""
+    if not clinical_context:
+        return ""
+    parts = clinical_context.split("\n--- ")
+    return parts[0].strip()
 
 
 def get_category_template(modality: str, region: str, category: str) -> str:
@@ -143,6 +192,19 @@ def validate_report_consistency(report: str, findings: dict, category: str) -> l
     if efecto == "ausente" and "efecto de masa" in report_lower:
         if "sin efecto de masa" not in report_lower and "no se identifica efecto de masa" not in report_lower:
             violations.append("Informe menciona efecto de masa pero JSON indica 'ausente'")
+
+    # 6. Si fuente principal fue radiólogo, verificar coherencia con hallazgo_principal
+    fuente = str(findings.get("fuente_principal_utilizada", "")).strip().lower()
+    if "radiologo" in fuente:
+        hallazgo = _strip_accents(str(findings.get("hallazgo_principal", "")).lower())
+        if "isquem" in hallazgo:
+            for term in ["hematoma", "hemorragia", "sangrado agudo"]:
+                if term in report_lower and "sin " + term not in report_lower:
+                    violations.append(f"Radiólogo indicó hallazgo isquémico pero informe menciona '{term}'")
+        if "hemorrag" in hallazgo or "hematoma" in hallazgo:
+            for term in ["isquemia", "infarto cerebral"]:
+                if term in report_lower and "sin " + term not in report_lower:
+                    violations.append(f"Radiólogo indicó hallazgo hemorrágico pero informe menciona '{term}'")
 
     return violations
 
@@ -595,6 +657,255 @@ def test_validation_hemorragia_term_ok_for_hemorragico():
     print("  PASS: test_validation_hemorragia_term_ok_for_hemorragico")
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# TESTS — Prioridad de fuentes, conflictos y trazabilidad (v3)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_classify_conflict_between_sources():
+    """Si conflicto_entre_fuentes != 'sin conflicto' → indeterminado."""
+    # Conflicto presente → indeterminado
+    assert classify_finding({
+        "hallazgo_principal": "isquemico",
+        "confianza_global": "alta",
+        "conflicto_entre_fuentes": "Radiólogo describe isquemia pero contexto clínico sugiere hemorragia",
+    }) == "indeterminado"
+
+    assert classify_finding({
+        "hallazgo_principal": "hemorragico",
+        "confianza_global": "alta",
+        "conflicto_entre_fuentes": "DICOM sugiere normalidad pero clínica indica sangrado",
+    }) == "indeterminado"
+
+    # Sin conflicto → clasifica normalmente
+    assert classify_finding({
+        "hallazgo_principal": "isquemico",
+        "confianza_global": "alta",
+        "conflicto_entre_fuentes": "sin conflicto",
+    }) == "isquemico"
+
+    # Valores equivalentes a "sin conflicto"
+    assert classify_finding({
+        "hallazgo_principal": "hemorragico",
+        "confianza_global": "alta",
+        "conflicto_entre_fuentes": "no",
+    }) == "hemorragico"
+
+    assert classify_finding({
+        "hallazgo_principal": "normal",
+        "confianza_global": "alta",
+        "conflicto_entre_fuentes": "",
+    }) == "normal"
+
+    assert classify_finding({
+        "hallazgo_principal": "normal",
+        "confianza_global": "alta",
+        "conflicto_entre_fuentes": "ninguno",
+    }) == "normal"
+    print("  PASS: test_classify_conflict_between_sources")
+
+
+def test_extract_pure_clinical_context():
+    """Verificar que separa correctamente las 3 fuentes del string concatenado."""
+    # Caso completo con las 3 secciones
+    combined = (
+        "Paciente con cefalea intensa\n"
+        "--- Análisis DICOM automático ---\n"
+        "Bandas de atenuación: 30-50 HU\n"
+        "--- Hallazgos del radiólogo ---\n"
+        "Hipodensidad lenticular derecha"
+    )
+    result = _extract_pure_clinical_context(combined)
+    assert result == "Paciente con cefalea intensa", f"Got: '{result}'"
+
+    # Solo contexto clínico, sin marcadores
+    simple = "Paciente con sospecha de ACV"
+    result = _extract_pure_clinical_context(simple)
+    assert result == "Paciente con sospecha de ACV"
+
+    # Vacío
+    assert _extract_pure_clinical_context("") == ""
+
+    # Solo marcador DICOM
+    dicom_only = "\n--- Análisis DICOM automático ---\nBandas 30-50 HU"
+    result = _extract_pure_clinical_context(dicom_only)
+    assert result == ""  # Primer parte antes del marcador es vacía
+    print("  PASS: test_extract_pure_clinical_context")
+
+
+def test_classify_radiologo_priority():
+    """Si fuente_principal_utilizada == 'hallazgos_radiologo' y hallazgo es isquémico → isquémico."""
+    findings = {
+        "hallazgo_principal": "isquemico",
+        "confianza_global": "alta",
+        "fuente_principal_utilizada": "hallazgos_radiologo",
+        "conflicto_entre_fuentes": "sin conflicto",
+    }
+    assert classify_finding(findings) == "isquemico"
+
+    # Radiólogo con hemorragia → hemorragico
+    findings2 = {
+        "hallazgo_principal": "hemorragico",
+        "confianza_global": "alta",
+        "fuente_principal_utilizada": "hallazgos_radiologo",
+        "conflicto_entre_fuentes": "sin conflicto",
+    }
+    assert classify_finding(findings2) == "hemorragico"
+    print("  PASS: test_classify_radiologo_priority")
+
+
+def test_validate_radiologo_contradiction():
+    """Si radiólogo dijo isquémico pero informe dice hemorrágico → violación."""
+    # Caso: radiólogo isquémico, informe menciona hematoma
+    findings = {
+        "hallazgo_principal": "isquemico",
+        "lateralidad": "derecho",
+        "fuente_principal_utilizada": "hallazgos_radiologo",
+    }
+    report = "Se identifica hematoma en región lenticular derecho."
+    violations = validate_report_consistency(report, findings, "isquemico")
+    assert any("Radiólogo indicó hallazgo isquémico" in v for v in violations), f"Violations: {violations}"
+
+    # Caso: radiólogo hemorrágico, informe menciona isquemia
+    findings2 = {
+        "hallazgo_principal": "hemorragico",
+        "lateralidad": "izquierdo",
+        "fuente_principal_utilizada": "hallazgos_radiologo",
+    }
+    report2 = "Se observa isquemia en territorio silviano izquierdo."
+    violations2 = validate_report_consistency(report2, findings2, "hemorragico")
+    assert any("Radiólogo indicó hallazgo hemorrágico" in v for v in violations2), f"Violations: {violations2}"
+
+    # Caso OK: radiólogo isquémico, informe consistente
+    findings3 = {
+        "hallazgo_principal": "isquemico",
+        "lateralidad": "derecho",
+        "fuente_principal_utilizada": "hallazgos_radiologo",
+        "efecto_masa": "ausente",
+    }
+    report3 = "Hipodensidad en región lenticular derecha sin efecto de masa."
+    violations3 = validate_report_consistency(report3, findings3, "isquemico")
+    radiologo_violations = [v for v in violations3 if "Radiólogo" in v]
+    assert len(radiologo_violations) == 0, f"Violations: {violations3}"
+    print("  PASS: test_validate_radiologo_contradiction")
+
+
+def test_pipeline_metadata_structure():
+    """Verificar que pipeline_metadata tiene las claves esperadas."""
+    expected_keys = {
+        "fuente_principal_utilizada",
+        "conflicto_entre_fuentes",
+        "categoria_original",
+        "hubo_regeneracion",
+        "violaciones_detectadas",
+    }
+    # Simular el metadata que generate_pre_report construiría
+    findings_json = {
+        "hallazgo_principal": "isquemico",
+        "fuente_principal_utilizada": "hallazgos_radiologo",
+        "conflicto_entre_fuentes": "sin conflicto",
+    }
+    category = classify_finding(findings_json)
+    pipeline_metadata = {
+        "fuente_principal_utilizada": findings_json.get("fuente_principal_utilizada", "no especificada"),
+        "conflicto_entre_fuentes": findings_json.get("conflicto_entre_fuentes", "sin conflicto"),
+        "categoria_original": category,
+        "hubo_regeneracion": False,
+        "violaciones_detectadas": [],
+    }
+    assert set(pipeline_metadata.keys()) == expected_keys
+    assert pipeline_metadata["fuente_principal_utilizada"] == "hallazgos_radiologo"
+    assert pipeline_metadata["conflicto_entre_fuentes"] == "sin conflicto"
+    assert pipeline_metadata["categoria_original"] == "isquemico"
+    assert pipeline_metadata["hubo_regeneracion"] is False
+    assert pipeline_metadata["violaciones_detectadas"] == []
+    print("  PASS: test_pipeline_metadata_structure")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TESTS — determine_redaction_mode (v4)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def test_redaction_mode_normal_is_clasico():
+    """Hallazgo 'normal' → siempre clásico."""
+    assert determine_redaction_mode({"hallazgo_principal": "normal"}) == "clasico"
+    assert determine_redaction_mode({"hallazgo_principal": "sin hallazgos"}) == "clasico"
+    assert determine_redaction_mode({"hallazgo_principal": "sin alteraciones"}) == "clasico"
+    assert determine_redaction_mode({"hallazgo_principal": "sin patologia"}) == "clasico"
+    # Normal con confianza baja sigue siendo clásico (normal no necesita anatomía)
+    assert determine_redaction_mode({
+        "hallazgo_principal": "normal",
+        "confianza_anatomica": "baja",
+    }) == "clasico"
+    print("  PASS: test_redaction_mode_normal_is_clasico")
+
+
+def test_redaction_mode_with_anatomy_is_clasico():
+    """Localización + lateralidad + confianza alta → clásico."""
+    assert determine_redaction_mode({
+        "hallazgo_principal": "isquemico",
+        "localizacion": "lenticular",
+        "lateralidad": "derecho",
+        "confianza_anatomica": "alta",
+        "descripcion_hallazgo": "Hipodensidad en región lenticular derecha",
+    }) == "clasico"
+    print("  PASS: test_redaction_mode_with_anatomy_is_clasico")
+
+
+def test_redaction_mode_low_anat_confidence_is_limitado():
+    """confianza_anatomica=baja → siempre limitado (excepto normal)."""
+    assert determine_redaction_mode({
+        "hallazgo_principal": "isquemico",
+        "localizacion": "lenticular",
+        "lateralidad": "derecho",
+        "confianza_anatomica": "baja",
+    }) == "limitado"
+    assert determine_redaction_mode({
+        "hallazgo_principal": "hemorragico",
+        "confianza_anatomica": "baja",
+    }) == "limitado"
+    print("  PASS: test_redaction_mode_low_anat_confidence_is_limitado")
+
+
+def test_redaction_mode_no_location_is_limitado():
+    """Sin localización ni lateralidad → limitado."""
+    assert determine_redaction_mode({
+        "hallazgo_principal": "isquemico",
+        "localizacion": "no descrito",
+        "lateralidad": "no descrito",
+        "confianza_anatomica": "alta",
+    }) == "limitado"
+    assert determine_redaction_mode({
+        "hallazgo_principal": "hemorragico",
+        "localizacion": "no aplica",
+        "lateralidad": "",
+    }) == "limitado"
+    print("  PASS: test_redaction_mode_no_location_is_limitado")
+
+
+def test_redaction_mode_quant_only_description_is_limitado():
+    """Descripción solo con bandas HU sin anatomía → limitado."""
+    assert determine_redaction_mode({
+        "hallazgo_principal": "indeterminado",
+        "localizacion": "difusa",
+        "lateralidad": "bilateral",
+        "confianza_anatomica": "media",
+        "descripcion_hallazgo": "Banda de atenuacion 50-80 HU elevada, distribucion difusa",
+    }) == "limitado"
+    print("  PASS: test_redaction_mode_quant_only_description_is_limitado")
+
+
+def test_redaction_mode_mixed_description_is_clasico():
+    """Bandas HU + anatomía mencionada → clásico (tiene sustento)."""
+    assert determine_redaction_mode({
+        "hallazgo_principal": "isquemico",
+        "localizacion": "lenticular",
+        "lateralidad": "derecho",
+        "confianza_anatomica": "alta",
+        "descripcion_hallazgo": "Banda de atenuacion baja en nucleo lenticular derecho",
+    }) == "clasico"
+    print("  PASS: test_redaction_mode_mixed_description_is_clasico")
+
+
 # ── Runner ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -634,6 +945,19 @@ if __name__ == "__main__":
         test_validation_efecto_masa_absent,
         test_validation_sin_efecto_masa_is_ok,
         test_validation_hemorragia_term_ok_for_hemorragico,
+        # Prioridad de fuentes, conflictos y trazabilidad (v3)
+        test_classify_conflict_between_sources,
+        test_extract_pure_clinical_context,
+        test_classify_radiologo_priority,
+        test_validate_radiologo_contradiction,
+        test_pipeline_metadata_structure,
+        # Modo de redacción (v4)
+        test_redaction_mode_normal_is_clasico,
+        test_redaction_mode_with_anatomy_is_clasico,
+        test_redaction_mode_low_anat_confidence_is_limitado,
+        test_redaction_mode_no_location_is_limitado,
+        test_redaction_mode_quant_only_description_is_limitado,
+        test_redaction_mode_mixed_description_is_clasico,
     ]
 
     passed = 0
