@@ -93,11 +93,27 @@ export default function InformIAGenerarPage() {
     }
   }, [selectedModality, selectedRegion]);
 
-  // Auto-start analysis if study_uid from URL
+  // Auto-start PACS multi-slice analysis when arriving with study_uid
   useEffect(() => {
     if (studyUid && step === "analysis" && !analysis && !analyzing) {
-      // For now, just skip to template selection since we have the study info from URL
-      setStep("template");
+      setAnalyzing(true);
+      pacsApi.analyzeStudy(studyUid)
+        .then((result) => {
+          setAnalysis(result);
+          if (result.modalidad) {
+            const modalityMap: Record<string, string> = {
+              "CT": "TC", "MR": "RM", "US": "ECO", "DX": "RX", "CR": "RX",
+            };
+            setSelectedModality(modalityMap[result.modalidad] || result.modalidad);
+          }
+          setStep("template");
+          toast.success("Análisis DICOM completado");
+        })
+        .catch(() => {
+          toast.error("Error al analizar estudio desde PACS");
+          setStep("template"); // Continue without analysis
+        })
+        .finally(() => setAnalyzing(false));
     }
   }, [studyUid, step, analysis, analyzing]);
 

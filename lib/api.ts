@@ -306,6 +306,14 @@ export const pacsApi = {
   getWorklist: (modality?: string) =>
     api.get("/api/v1/pacs/worklist", { params: { modality } }).then(r => r.data),
 
+  analyzeStudy: (studyUid: string, seriesUid?: string) => {
+    const params = seriesUid ? `?series_uid=${seriesUid}` : "";
+    return api.get<DicomAnalysisResponse>(
+      `/api/v1/pacs/studies/${studyUid}/analyze${params}`,
+      { timeout: 120_000 },
+    ).then(r => r.data);
+  },
+
   analyzeDicom: (file: File) => {
     const form = new FormData();
     form.append("dicom_file", file);
