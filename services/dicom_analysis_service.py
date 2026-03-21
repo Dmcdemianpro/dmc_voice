@@ -10,17 +10,17 @@ import io
 from typing import Optional
 
 
-# Rangos de Unidades Hounsfield por tipo de tejido (TC)
+# Rangos de Unidades Hounsfield por banda de atenuación (TC)
+# Etiquetas neutras — sin diagnóstico implícito
 HU_RANGES_TC = {
-    "aire":           (-1000, -700),
-    "pulmon":         (-700,  -200),
-    "grasa":          (-200,  -10),
-    "agua_tejidos":   (-10,   80),
-    "tejido_blando":  (20,    80),
-    "sangre_aguda":   (50,    100),
-    "calcificacion":  (100,   400),
-    "hueso_cortical": (400,   1000),
-    "metal":          (1000,  3000),
+    "aire":                      (-1000, -700),
+    "baja_atenuacion_pulmonar":  (-700,  -200),
+    "baja_atenuacion_grasa":     (-200,  -10),
+    "atenuacion_agua_tejidos":   (-10,   80),
+    "atenuacion_50_100":         (50,    100),
+    "alta_atenuacion_100_400":   (100,   400),
+    "alta_atenuacion_400_1000":  (400,   1000),
+    "muy_alta_atenuacion_gt1000": (1000, 3000),
 }
 
 # Parámetros de secuencia RM relevantes para el informe
@@ -112,19 +112,23 @@ def _analizar_hu(ds, pixel_array: np.ndarray) -> dict:
             "hu_media": round(float(hu_array[mascara].mean()), 1) if mascara.any() else None,
         }
 
-    hallazgos_automaticos = []
-    if distribucion["calcificacion"]["porcentaje"] > 2.0:
-        hallazgos_automaticos.append(
-            f"Calcificaciones presentes ({distribucion['calcificacion']['porcentaje']}% del volumen)"
+    observaciones = []
+    if distribucion["alta_atenuacion_100_400"]["porcentaje"] > 2.0:
+        observaciones.append(
+            f"Banda 100-400 HU elevada ({distribucion['alta_atenuacion_100_400']['porcentaje']}% del volumen)"
         )
-    if distribucion["metal"]["porcentaje"] > 0.1:
-        hallazgos_automaticos.append("Material metálico detectado (implante o contraste denso)")
-    if distribucion["sangre_aguda"]["porcentaje"] > 1.5:
-        hallazgos_automaticos.append(
-            f"Densidades compatibles con sangre aguda ({distribucion['sangre_aguda']['porcentaje']}%)"
+    if distribucion["muy_alta_atenuacion_gt1000"]["porcentaje"] > 0.1:
+        observaciones.append(
+            f"Banda >1000 HU presente ({distribucion['muy_alta_atenuacion_gt1000']['porcentaje']}%)"
+        )
+    if distribucion["atenuacion_50_100"]["porcentaje"] > 1.5:
+        observaciones.append(
+            f"Banda 50-100 HU elevada ({distribucion['atenuacion_50_100']['porcentaje']}%)"
         )
     if distribucion["aire"]["porcentaje"] > 60:
-        hallazgos_automaticos.append("Alta proporción de aire — confirmar región torácica")
+        observaciones.append(
+            f"Proporción de aire elevada ({distribucion['aire']['porcentaje']}%)"
+        )
 
     return {
         "tipo": "TC_Hounsfield",
@@ -134,8 +138,8 @@ def _analizar_hu(ds, pixel_array: np.ndarray) -> dict:
             "hu_media": round(float(hu_array.mean()), 1),
             "hu_desv":  round(float(hu_array.std()), 1),
         },
-        "distribucion_tejidos": distribucion,
-        "hallazgos_automaticos": hallazgos_automaticos,
+        "distribucion_atenuacion": distribucion,
+        "observaciones": observaciones,
     }
 
 
@@ -194,13 +198,13 @@ def _analizar_eco(ds, pixel_array: np.ndarray) -> dict:
     pct_hiperecoico = round(float((pixel_array > p75).sum() / total * 100), 2)
     pct_anecoico = round(float((pixel_array < p5).sum() / total * 100), 2)
 
-    hallazgos_automaticos = []
+    observaciones = []
     if pct_anecoico > 5:
-        hallazgos_automaticos.append(
+        observaciones.append(
             f"Zonas anecoicas presentes ({pct_anecoico}%) — posible componente quístico o líquido"
         )
     if pct_hiperecoico > 20:
-        hallazgos_automaticos.append(
+        observaciones.append(
             f"Alta ecogenicidad ({pct_hiperecoico}%) — considerar grasa, cálculos o gas"
         )
 
@@ -218,7 +222,7 @@ def _analizar_eco(ds, pixel_array: np.ndarray) -> dict:
             "pct_hipoecoico":  pct_hipoecoico,
             "pct_hiperecoico": pct_hiperecoico,
         },
-        "hallazgos_automaticos": hallazgos_automaticos,
+        "observaciones": observaciones,
     }
 
 
@@ -229,13 +233,13 @@ def _analizar_rx(ds, pixel_array: np.ndarray) -> dict:
     pct_hiperluente = round(float((pixel_array < p5).sum() / total * 100), 2)
     pct_radioopaco = round(float((pixel_array > p95).sum() / total * 100), 2)
 
-    hallazgos_automaticos = []
+    observaciones = []
     if pct_radioopaco > 15:
-        hallazgos_automaticos.append(
+        observaciones.append(
             f"Alta densidad radiológica ({pct_radioopaco}%) — posible consolidación, derrame o calcificación"
         )
     if pct_hiperluente > 30:
-        hallazgos_automaticos.append(
+        observaciones.append(
             f"Alta hiperlucencia ({pct_hiperluente}%) — confirmar hiperinsuflación o neumotórax"
         )
 
@@ -252,7 +256,7 @@ def _analizar_rx(ds, pixel_array: np.ndarray) -> dict:
             "pct_hiperlucente": pct_hiperluente,
             "pct_radioopaco":   pct_radioopaco,
         },
-        "hallazgos_automaticos": hallazgos_automaticos,
+        "observaciones": observaciones,
     }
 
 
@@ -333,19 +337,23 @@ def _analizar_hu_multislice(pixel_arrays: list[tuple]) -> dict:
             "hu_media": round(float(hu_combined[mascara].mean()), 1) if mascara.any() else None,
         }
 
-    hallazgos_automaticos = []
-    if distribucion["calcificacion"]["porcentaje"] > 2.0:
-        hallazgos_automaticos.append(
-            f"Calcificaciones presentes ({distribucion['calcificacion']['porcentaje']}% del volumen)"
+    observaciones = []
+    if distribucion["alta_atenuacion_100_400"]["porcentaje"] > 2.0:
+        observaciones.append(
+            f"Banda 100-400 HU elevada ({distribucion['alta_atenuacion_100_400']['porcentaje']}% del volumen)"
         )
-    if distribucion["metal"]["porcentaje"] > 0.1:
-        hallazgos_automaticos.append("Material metálico detectado (implante o contraste denso)")
-    if distribucion["sangre_aguda"]["porcentaje"] > 1.5:
-        hallazgos_automaticos.append(
-            f"Densidades compatibles con sangre aguda ({distribucion['sangre_aguda']['porcentaje']}%)"
+    if distribucion["muy_alta_atenuacion_gt1000"]["porcentaje"] > 0.1:
+        observaciones.append(
+            f"Banda >1000 HU presente ({distribucion['muy_alta_atenuacion_gt1000']['porcentaje']}%)"
+        )
+    if distribucion["atenuacion_50_100"]["porcentaje"] > 1.5:
+        observaciones.append(
+            f"Banda 50-100 HU elevada ({distribucion['atenuacion_50_100']['porcentaje']}%)"
         )
     if distribucion["aire"]["porcentaje"] > 60:
-        hallazgos_automaticos.append("Alta proporción de aire — confirmar región torácica")
+        observaciones.append(
+            f"Proporción de aire elevada ({distribucion['aire']['porcentaje']}%)"
+        )
 
     return {
         "tipo": "TC_Hounsfield",
@@ -355,8 +363,8 @@ def _analizar_hu_multislice(pixel_arrays: list[tuple]) -> dict:
             "hu_media": round(float(hu_combined.mean()), 1),
             "hu_desv":  round(float(hu_combined.std()), 1),
         },
-        "distribucion_tejidos": distribucion,
-        "hallazgos_automaticos": hallazgos_automaticos,
+        "distribucion_atenuacion": distribucion,
+        "observaciones": observaciones,
     }
 
 
@@ -465,17 +473,17 @@ def construir_contexto_multiserie(
             lineas += [
                 f"HU promedio: {stats['hu_media']} (rango: {stats['hu_min']} a {stats['hu_max']})",
             ]
-            dist = s_cuant["distribucion_tejidos"]
-            tejidos_relevantes = [
+            dist = s_cuant["distribucion_atenuacion"]
+            bandas_relevantes = [
                 (t, d) for t, d in dist.items() if d["porcentaje"] > 0.5
             ]
-            for tejido, datos in tejidos_relevantes:
+            for banda, datos in bandas_relevantes:
                 lineas.append(
-                    f"  {tejido.capitalize()}: {datos['porcentaje']}%"
+                    f"  {banda}: {datos['porcentaje']}%"
                     + (f" (HU media: {datos['hu_media']})" if datos["hu_media"] else "")
                 )
-            if s_cuant.get("hallazgos_automaticos"):
-                for h in s_cuant["hallazgos_automaticos"]:
+            if s_cuant.get("observaciones"):
+                for h in s_cuant["observaciones"]:
                     lineas.append(f"  * {h}")
 
         elif modalidad in ("MR", "RM") and s_cuant:
@@ -493,8 +501,8 @@ def construir_contexto_multiserie(
                 f"Hipoecoico: {s_cuant['distribucion']['pct_hipoecoico']}%",
                 f"Hiperecoico: {s_cuant['distribucion']['pct_hiperecoico']}%",
             ]
-            if s_cuant.get("hallazgos_automaticos"):
-                for h in s_cuant["hallazgos_automaticos"]:
+            if s_cuant.get("observaciones"):
+                for h in s_cuant["observaciones"]:
                     lineas.append(f"  * {h}")
 
         elif modalidad in ("DX", "CR", "RX") and s_cuant:
@@ -503,8 +511,8 @@ def construir_contexto_multiserie(
                 f"Hiperlucencia: {s_cuant['distribucion']['pct_hiperlucente']}%",
                 f"Radiopacidad: {s_cuant['distribucion']['pct_radioopaco']}%",
             ]
-            if s_cuant.get("hallazgos_automaticos"):
-                for h in s_cuant["hallazgos_automaticos"]:
+            if s_cuant.get("observaciones"):
+                for h in s_cuant["observaciones"]:
                     lineas.append(f"  * {h}")
 
         advs = serie.get("advertencias_tecnicas", [])
@@ -516,15 +524,15 @@ def construir_contexto_multiserie(
     all_hallazgos = []
     for serie in resultados_series:
         cuant = serie.get("analisis_cuantitativo")
-        if cuant and cuant.get("hallazgos_automaticos"):
+        if cuant and cuant.get("observaciones"):
             desc = serie["metadata_tecnica"].get("descripcion_serie", "")
-            for h in cuant["hallazgos_automaticos"]:
+            for h in cuant["observaciones"]:
                 all_hallazgos.append(f"{h} (serie: {desc})" if desc else h)
 
     if all_hallazgos:
         lineas += [
             "",
-            "=== RESUMEN DE HALLAZGOS AUTOMÁTICOS (todas las series) ===",
+            "=== OBSERVACIONES CUANTITATIVAS (todas las series) ===",
         ]
         # Deduplicate similar findings
         seen = set()
@@ -573,17 +581,17 @@ def construir_contexto_para_claude(analisis: dict) -> str:
             f"HU promedio global: {cuant['estadisticas_globales']['hu_media']}",
             f"Rango HU: {cuant['estadisticas_globales']['hu_min']} a {cuant['estadisticas_globales']['hu_max']}",
         ]
-        dist = cuant["distribucion_tejidos"]
-        for tejido, datos in dist.items():
+        dist = cuant["distribucion_atenuacion"]
+        for banda, datos in dist.items():
             if datos["porcentaje"] > 0.5:
                 lineas.append(
-                    f"  {tejido.capitalize()}: {datos['porcentaje']}%"
+                    f"  {banda}: {datos['porcentaje']}%"
                     + (f" (HU media: {datos['hu_media']})" if datos["hu_media"] else "")
                 )
-        if cuant["hallazgos_automaticos"]:
-            lineas += ["", "=== HALLAZGOS DETECTADOS AUTOMÁTICAMENTE ==="]
-            for h in cuant["hallazgos_automaticos"]:
-                lineas.append(f"  - {h}")
+        if cuant.get("observaciones"):
+            lineas += ["", "=== OBSERVACIONES CUANTITATIVAS ==="]
+            for obs in cuant["observaciones"]:
+                lineas.append(f"  - {obs}")
 
     elif modalidad in ("MR", "RM") and cuant:
         lineas += [
@@ -607,9 +615,9 @@ def construir_contexto_para_claude(analisis: dict) -> str:
             f"Zonas hipoecoicas: {cuant['distribucion']['pct_hipoecoico']}%",
             f"Zonas hiperecoicas: {cuant['distribucion']['pct_hiperecoico']}%",
         ]
-        if cuant["hallazgos_automaticos"]:
-            lineas += ["", "=== HALLAZGOS DETECTADOS AUTOMÁTICAMENTE ==="]
-            for h in cuant["hallazgos_automaticos"]:
+        if cuant["observaciones"]:
+            lineas += ["", "=== OBSERVACIONES CUANTITATIVAS ==="]
+            for h in cuant["observaciones"]:
                 lineas.append(f"  - {h}")
 
     elif modalidad in ("DX", "CR", "RX") and cuant:
@@ -620,9 +628,9 @@ def construir_contexto_para_claude(analisis: dict) -> str:
             f"Hiperlucencia: {cuant['distribucion']['pct_hiperlucente']}%",
             f"Radiopacidad: {cuant['distribucion']['pct_radioopaco']}%",
         ]
-        if cuant["hallazgos_automaticos"]:
-            lineas += ["", "=== HALLAZGOS DETECTADOS AUTOMÁTICAMENTE ==="]
-            for h in cuant["hallazgos_automaticos"]:
+        if cuant["observaciones"]:
+            lineas += ["", "=== OBSERVACIONES CUANTITATIVAS ==="]
+            for h in cuant["observaciones"]:
                 lineas.append(f"  - {h}")
 
     if analisis["advertencias_tecnicas"]:

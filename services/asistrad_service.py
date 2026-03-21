@@ -72,23 +72,35 @@ REGIONS_BY_MODALITY = {
 # PASO 1 — EXTRACCIÓN: Contexto DICOM → JSON estructurado
 # ══════════════════════════════════════════════════════════════════════════════
 
-EXTRACTION_SYSTEM_PROMPT = """Eres un sistema de extracción de hallazgos radiológicos. Tu ÚNICA tarea es leer el contexto DICOM y la información clínica proporcionada, y extraer los hallazgos en formato JSON estructurado.
+EXTRACTION_SYSTEM_PROMPT = """Eres un sistema de extracción de hallazgos radiológicos. Tu ÚNICA tarea es leer el contexto DICOM y la información proporcionada, y extraer los hallazgos en formato JSON estructurado.
 
 === REGLAS ABSOLUTAS DE EXTRACCIÓN ===
 1. Extrae SOLO lo que está explícitamente descrito en el texto de entrada.
 2. Si un dato NO está presente en el texto → usa "no descrito" o "indeterminado".
 3. NO completes datos faltantes con supuestos clínicos.
-4. NO inferir hemorragia sin mención explícita de hiperdensidad, sangre aguda, o hematoma.
-5. NO inferir isquemia sin mención explícita de hipodensidad, infarto, o isquemia.
+4. NO inferir hemorragia sin mención explícita de hiperdensidad o alta atenuación focal.
+5. NO inferir isquemia sin mención explícita de hipodensidad o baja atenuación focal.
 6. NO inventar lateralidad, dimensiones ni complicaciones.
-7. NO agregar material metálico si no se menciona.
+7. NO agregar material metálico si no se describe explícitamente.
+8. Las bandas de atenuación cuantitativas (ej: "banda 50-100 HU elevada") son datos neutros — NO interpretarlos como diagnóstico.
+
+=== CONTEXTO CLÍNICO ===
+- Si se proporciona contexto clínico (sospecha, antecedentes), trátalo como CONTEXTO NO VINCULANTE.
+- La imagen manda, la clínica contextualiza.
+- NO dejes que una sospecha clínica (ej: "sospecha de hemorragia") determine el hallazgo_principal.
+- El hallazgo_principal debe basarse en lo que DESCRIBE el análisis cuantitativo, no en la sospecha.
+
+=== CONFIABILIDAD ===
+- Asigna "confianza_anatomica" según qué tan precisa es la localización: "alta" si hay región clara, "baja" si es difusa o no descrita.
+- Asigna "confianza_global" según la calidad del dato: "alta" si el hallazgo es claro y unívoco, "media" si hay datos parciales, "baja" si es ambiguo o insuficiente.
+- Indica en "limitaciones" todo factor que reduzca la confianza (pocas series, sin contraste, artefactos, muestreo parcial).
 
 === REGLAS DE SEGURIDAD DIAGNÓSTICA ===
 - NUNCA convertir "hipodenso" en "hiperdenso" ni viceversa.
 - NUNCA convertir "isquémico" en "hemorrágico" ni viceversa.
-- NUNCA usar "hematoma" sin mención de sangre aguda o hiperdensidad en la entrada.
 - NUNCA rellenar campos con inferencias clínicas.
-- Si hay ambigüedad entre isquémico y hemorrágico → "indeterminado".
+- Si hay ambigüedad entre isquémico y hemorrágico → hallazgo_principal = "indeterminado".
+- Si el contexto clínico dice una cosa pero los datos cuantitativos sugieren otra → seguir los datos.
 
 === SALIDA ===
 Responde ÚNICAMENTE con JSON válido. Sin markdown, sin explicaciones, sin texto adicional."""
@@ -109,7 +121,11 @@ EXTRACTION_SCHEMAS: dict[str, dict[str, str]] = {
   "hidrocefalia": "presente | ausente | no descrito",
   "hallazgos_secundarios": ["lista de otros hallazgos menores"],
   "hallazgos_extracraneales": ["hallazgos fuera del encéfalo, ej: fracturas, partes blandas"],
-  "soporte_textual": "cita textual del fragmento de entrada que sustenta el hallazgo principal"
+  "confianza_anatomica": "alta | media | baja — qué tan confiable es la localización anatómica del hallazgo",
+  "confianza_global": "alta | media | baja — confianza general en la extracción (alta: dato claro; baja: ambiguo o insuficiente)",
+  "limitaciones": ["lista de factores que limitan la interpretación, ej: 'pocas series analizadas', 'sin contraste', 'artefacto de movimiento'"],
+  "evidencia_textual": ["citas textuales del contexto de entrada que sustentan cada hallazgo"],
+  "series_fuente": ["identificadores o descripciones de las series usadas para la extracción"]
 }"""
     }
 }
@@ -121,7 +137,9 @@ GENERIC_EXTRACTION_SCHEMA = """{
   "localizacion": "región anatómica o 'no aplica'",
   "lateralidad": "derecho | izquierdo | bilateral | no descrito",
   "hallazgos_secundarios": ["lista de hallazgos menores"],
-  "soporte_textual": "cita textual del fragmento de entrada que sustenta el hallazgo"
+  "confianza_global": "alta | media | baja",
+  "limitaciones": ["factores que limitan la interpretación"],
+  "evidencia_textual": ["citas textuales del contexto de entrada que sustentan el hallazgo"]
 }"""
 
 
@@ -215,26 +233,60 @@ def _strip_accents(s: str) -> str:
 
 
 def classify_finding(findings: dict) -> str:
-    """Paso 2: Lee hallazgo_principal del JSON y retorna la categoría."""
+    """Paso 2: Clasificación conservadora desde JSON extraído.
+
+    Reglas de prudencia:
+    - confianza_global baja → indeterminado
+    - confianza_anatomica baja sin hallazgo claro → indeterminado
+    - Conflicto isquemia/hemorragia → indeterminado
+    - Falta localización + lateralidad pero hay hallazgo sugerente → indeterminado
+    - Mejor caer en indeterminado que sobrediagnosticar.
+    """
     raw = findings.get("hallazgo_principal", "indeterminado")
     if not raw or not isinstance(raw, str):
         return "indeterminado"
 
     normalized = _strip_accents(raw.strip().lower())
 
-    # Mapeo directo
+    # ── Reglas conservadoras de confiabilidad ──
+    confianza_global = _strip_accents(str(findings.get("confianza_global", "")).strip().lower())
+    confianza_anat = _strip_accents(str(findings.get("confianza_anatomica", "")).strip().lower())
+
+    # Baja confianza global → indeterminado siempre
+    if confianza_global == "baja":
+        logger.info("Clasificación → indeterminado (confianza_global=baja)")
+        return "indeterminado"
+
+    # Detectar conflicto isquemia/hemorragia en el mismo texto
+    has_isq = any(kw in normalized for kw in ("isquem", "hipodens", "infarto"))
+    has_hem = any(kw in normalized for kw in ("hemorrag", "hematoma", "sangr", "hiperdens"))
+    if has_isq and has_hem:
+        logger.info("Clasificación → indeterminado (conflicto isquemia+hemorragia)")
+        return "indeterminado"
+
+    # Hallazgo patológico pero sin localización ni lateralidad → indeterminado
+    localizacion = str(findings.get("localizacion", "no descrito")).strip().lower()
+    lateralidad = str(findings.get("lateralidad", "no descrito")).strip().lower()
+    hallazgo_pato = normalized not in ("normal", "sin hallazgos", "sin alteraciones",
+                                        "sin patologia", "indeterminado")
+    if hallazgo_pato and localizacion in ("no descrito", "no aplica", "") and lateralidad in ("no descrito", ""):
+        if confianza_anat == "baja":
+            logger.info("Clasificación → indeterminado (patológico sin localización, confianza_anatomica=baja)")
+            return "indeterminado"
+
+    # ── Mapeo directo ──
     if normalized in CATEGORIES:
         return normalized
 
-    # Mapeo flexible por keywords (sin acentos)
+    # ── Mapeo flexible por keywords (sin acentos) ──
     # Orden importa: traumático antes de hemorrágico (contusión hemorrágica = trauma)
     if normalized in ("normal", "sin hallazgos", "sin alteraciones", "sin patologia"):
         return "normal"
     if any(kw in normalized for kw in ("traumat", "fractura", "contusi")):
         return "traumatico"
-    if any(kw in normalized for kw in ("isquem", "hipodens", "infarto")):
+    if has_isq:
         return "isquemico"
-    if any(kw in normalized for kw in ("hemorrag", "hematoma", "sangr", "hiperdens")):
+    if has_hem:
         return "hemorragico"
 
     return "indeterminado"
@@ -244,70 +296,74 @@ def classify_finding(findings: dict) -> str:
 # PASO 2.5 — PLANTILLAS POR CATEGORÍA
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Plantillas de FORMATO — no de diagnóstico.
+# Los campos entre {campo} se llenan exclusivamente desde el JSON extraído.
+# No incluyen frases diagnósticas rígidas; la redacción la hace Claude desde el JSON.
 CATEGORY_TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
     "TC": {
         "Cerebro": {
             "normal": """Tomografía computada de encéfalo sin contraste.
 
 Hallazgos:
-Parénquima cerebral de densidad conservada sin lesiones focales.
-Sistema ventricular de tamaño y configuración normal.
-Estructuras de la línea media centradas.
-No se identifican colecciones hemorrágicas intra ni extra-axiales.
-Calota sin alteraciones agudas.
+{describir parénquima cerebral según JSON — solo si JSON confirma normalidad}
+{describir sistema ventricular según JSON}
+{describir línea media según JSON}
+{describir colecciones si JSON las menciona, omitir si no}
+{describir calota según JSON}
 
 Impresión:
-No se identifican alteraciones agudas del encéfalo con la presente técnica.""",
+{resumen fiel: una frase descartando compromiso agudo si JSON es normal}""",
 
             "isquemico": """Tomografía computada de encéfalo sin contraste.
 
 Hallazgos:
-Área hipodensa en [LOCALIZACIÓN] [LATERALIDAD] de aproximadamente [DIMENSIONES], sugerente de lesión isquémica [aguda/subaguda].
-[EFECTO_MASA: Sin efecto de masa significativo / Con discreto efecto de masa local].
-Sistema ventricular sin dilatación aguda.
-Estructuras de la línea media centradas.
-No se identifican colecciones hemorrágicas.
-Calota sin alteraciones agudas.
+{describir hallazgo principal según JSON: densidad + localización + lateralidad + dimensiones si disponibles}
+{describir efecto_masa SOLO si JSON lo indica como presente}
+{describir sistema ventricular según JSON}
+{describir línea media según JSON}
+{describir hallazgos secundarios según JSON, omitir si vacíos}
+{describir calota según JSON}
 
 Impresión:
-Área hipodensa [LOCALIZACIÓN] [LATERALIDAD] compatible con lesión isquémica. Correlación clínica sugerida.""",
+{resumen fiel del hallazgo principal con localización y lateralidad del JSON}""",
 
             "hemorragico": """Tomografía computada de encéfalo sin contraste.
 
 Hallazgos:
-Imagen hiperdensa en [LOCALIZACIÓN] [LATERALIDAD] de aproximadamente [DIMENSIONES], compatible con hematoma [intraparenquimatoso/extra-axial] agudo.
-[EFECTO_MASA: Efecto de masa sobre estructuras adyacentes].
-[DESVIACIÓN: Línea media con desviación de X mm / centrada].
-[EXTENSIÓN_INTRAVENTRICULAR: Sin extensión / Con extensión intraventricular].
-[HIDROCEFALIA: Sin hidrocefalia / Con hidrocefalia asociada].
-Calota sin fracturas.
+{describir hallazgo principal según JSON: densidad + localización + lateralidad + dimensiones si disponibles}
+{describir efecto_masa SOLO si JSON lo indica como presente}
+{describir desviacion_linea_media SOLO si JSON indica presente con medida}
+{describir extension_intraventricular SOLO si JSON indica presente}
+{describir hidrocefalia SOLO si JSON indica presente}
+{describir hallazgos secundarios según JSON, omitir si vacíos}
+{describir calota según JSON}
 
 Impresión:
-Hematoma agudo [LOCALIZACIÓN] [LATERALIDAD] con [descripción de complicaciones]. Se sugiere control evolutivo.""",
+{resumen fiel del hallazgo principal con complicaciones presentes en JSON}""",
 
             "traumatico": """Tomografía computada de encéfalo sin contraste.
 
 Hallazgos:
-[Describir hallazgos traumáticos: contusiones, hematomas, fracturas según JSON].
-[EFECTO_MASA si presente].
-[Estado de línea media].
-[Colecciones extra-axiales si presentes].
-[Estado de calota y base de cráneo].
+{describir hallazgo principal según JSON: tipo de lesión + localización + lateralidad}
+{describir efecto_masa SOLO si JSON lo indica como presente}
+{describir línea media según JSON}
+{describir hallazgos extracraneales según JSON: fracturas, partes blandas}
+{describir hallazgos secundarios según JSON, omitir si vacíos}
 
 Impresión:
-[Hallazgos traumáticos principales]. Correlación clínica sugerida.""",
+{resumen fiel de hallazgos traumáticos presentes en JSON}""",
 
             "indeterminado": """Tomografía computada de encéfalo sin contraste.
 
 Hallazgos:
-[Describir hallazgos observados de forma neutra, sin asumir etiología].
-Sistema ventricular [descripción].
-Estructuras de la línea media [centradas/desviadas].
-[Colecciones hemorrágicas: presentes/ausentes].
-Calota [descripción].
+{describir hallazgos observados según JSON de forma neutra — sin asumir etiología}
+{describir sistema ventricular según JSON}
+{describir línea media según JSON}
+{describir calota según JSON}
+{si JSON indica limitaciones, mencionarlas}
 
 Impresión:
-[Hallazgo principal descrito de forma neutra]. Se sugiere correlación clínica y eventualmente estudio complementario.""",
+{resumen neutra y cautelosa — sugerir correlación clínica y eventual estudio complementario}""",
         }
     }
 }
@@ -418,6 +474,61 @@ async def generate_report_from_findings(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PASO 4 — VALIDACIÓN POST-GENERACIÓN: consistencia JSON vs informe
+# ══════════════════════════════════════════════════════════════════════════════
+
+def validate_report_consistency(report: str, findings: dict, category: str) -> list[str]:
+    """Valida que el informe generado sea consistente con el JSON de hallazgos.
+
+    Retorna lista de inconsistencias detectadas (vacía = OK).
+    Cada inconsistencia es un string descriptivo.
+    """
+    report_lower = _strip_accents(report.lower())
+    violations = []
+
+    # 1. Si categoría NO es hemorrágica, el informe no debería mencionar hemorragia/hematoma
+    if category != "hemorragico":
+        hemo_terms = ["hematoma", "hemorragia", "sangrado agudo", "sangre aguda"]
+        for term in hemo_terms:
+            if term in report_lower:
+                violations.append(f"Informe menciona '{term}' pero categoría es '{category}'")
+
+    # 2. Si categoría NO es isquémica, el informe no debería mencionar isquemia/infarto
+    if category != "isquemico":
+        isq_terms = ["isquemia", "isquemico", "infarto cerebral", "acv isquemico"]
+        for term in isq_terms:
+            if term in report_lower:
+                violations.append(f"Informe menciona '{term}' pero categoría es '{category}'")
+
+    # 3. Material metálico: no mencionar si no está en JSON
+    hallazgos_sec = findings.get("hallazgos_secundarios", [])
+    hallazgos_extra = findings.get("hallazgos_extracraneales", [])
+    all_text = json.dumps(findings, ensure_ascii=False).lower()
+    metal_terms = ["material metalico", "implante metalico", "metal"]
+    for term in metal_terms:
+        if term in report_lower and term not in _strip_accents(all_text):
+            violations.append(f"Informe menciona '{term}' pero no está en JSON")
+
+    # 4. Lateralidad inventada: si JSON dice "no descrito", informe no debería especificar
+    lat = str(findings.get("lateralidad", "")).strip().lower()
+    if lat in ("no descrito", ""):
+        if "derecho" in report_lower or "izquierdo" in report_lower:
+            # Solo si es sobre el hallazgo principal (no sobre normalidad anatómica)
+            desc = _strip_accents(str(findings.get("descripcion_hallazgo", "")).lower())
+            if category not in ("normal", "indeterminado") and "normal" not in desc:
+                violations.append("Informe especifica lateralidad pero JSON indica 'no descrito'")
+
+    # 5. Efecto de masa: no mencionar como presente si JSON dice ausente
+    efecto = str(findings.get("efecto_masa", "")).strip().lower()
+    if efecto == "ausente" and "efecto de masa" in report_lower:
+        # Verificar que no diga "sin efecto de masa" (eso sí es válido)
+        if "sin efecto de masa" not in report_lower and "no se identifica efecto de masa" not in report_lower:
+            violations.append("Informe menciona efecto de masa pero JSON indica 'ausente'")
+
+    return violations
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # FUNCIÓN PRINCIPAL — Orquesta el pipeline
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -458,6 +569,22 @@ async def generate_pre_report(
         report, prompt_sent = await generate_report_from_findings(
             findings_json, category_template, category, db, mod, reg
         )
+
+        # Paso 4: Validación post-generación
+        violations = validate_report_consistency(report, findings_json, category)
+        if violations:
+            logger.warning("Validación post-generación detectó %d inconsistencias: %s",
+                           len(violations), "; ".join(violations))
+            # Regenerar con plantilla indeterminada (cautelosa)
+            fallback_template = get_category_template(mod, reg, "indeterminado")
+            report, prompt_sent = await generate_report_from_findings(
+                findings_json, fallback_template, "indeterminado", db, mod, reg
+            )
+            # Segunda validación — si falla de nuevo, agregar advertencia
+            violations_2 = validate_report_consistency(report, findings_json, "indeterminado")
+            if violations_2:
+                logger.error("Validación falló 2 veces: %s", "; ".join(violations_2))
+                report = report + "\n\n[ADVERTENCIA: Este informe requiere revisión manual por inconsistencias detectadas automáticamente.]"
 
         return report, prompt_sent, findings_json, category
     else:
