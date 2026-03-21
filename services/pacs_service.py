@@ -82,13 +82,13 @@ class PACSService:
         return resp.json()
 
     async def get_instance_frames(self, study_uid: str, series_uid: str, instance_uid: str) -> bytes:
-        """Download DICOM instance via WADO-RS."""
+        """Download DICOM instance via WADO-RS (multipart/related response)."""
         resp = await self.client.get(
             f"{DICOMWEB_RS}/studies/{study_uid}/series/{series_uid}/instances/{instance_uid}",
-            headers={"Accept": "application/dicom"},
+            headers={"Accept": "multipart/related; type=application/dicom"},
         )
         resp.raise_for_status()
-        return resp.content
+        return self._extract_dicom_from_multipart(resp)
 
     async def get_worklist(self, modality: Optional[str] = None) -> list[dict]:
         params = {"includefield": "all"}
@@ -103,6 +103,42 @@ class PACSService:
             return []
         resp.raise_for_status()
         return resp.json()
+
+    @staticmethod
+    def _extract_dicom_from_multipart(resp) -> bytes:
+        """Extract DICOM bytes from a WADO-RS multipart/related response."""
+        content_type = resp.headers.get("content-type", "")
+        # Extract boundary from content-type header
+        boundary = None
+        for part in content_type.split(";"):
+            part = part.strip()
+            if part.startswith("boundary="):
+                boundary = part.split("=", 1)[1].strip('"')
+                break
+
+        if not boundary:
+            # Fallback: return raw content (might work if server returns plain DICOM)
+            return resp.content
+
+        # Split by boundary and extract the DICOM part (skip headers in each part)
+        raw = resp.content
+        delimiter = f"--{boundary}".encode()
+        parts = raw.split(delimiter)
+
+        for part in parts:
+            if b"application/dicom" in part or (b"\r\n\r\n" in part and len(part) > 200):
+                # Skip MIME headers, content starts after \r\n\r\n
+                header_end = part.find(b"\r\n\r\n")
+                if header_end != -1:
+                    dicom_data = part[header_end + 4:]
+                    # Remove trailing \r\n if present
+                    if dicom_data.endswith(b"\r\n"):
+                        dicom_data = dicom_data[:-2]
+                    if len(dicom_data) > 100:  # Sanity check
+                        return dicom_data
+
+        # If parsing fails, return raw content
+        return resp.content
 
     @staticmethod
     def _val(tag_data: dict, default="") -> str:
