@@ -477,12 +477,13 @@ Impresión:
             "_limitado": """Tomografía computada de encéfalo sin contraste.
 
 Hallazgos:
-{describir brevemente los datos cuantitativos disponibles sin asumir localización anatómica precisa}
-{mencionar limitaciones del análisis según JSON}
+{traducir datos a lenguaje radiológico: "focos de alta/baja atenuación" — NUNCA valores HU crudos}
+{NO mencionar porcentaje de imágenes, muestreo parcial ni métricas de procesamiento}
 {NO describir estructuras anatómicas que no estén explícitamente confirmadas}
+{indicar que la evaluación tiene limitaciones técnicas, sin detallar cuáles}
 
 Impresión:
-{resumen sobrio indicando que los hallazgos requieren revisión directa de imágenes y correlación clínica}""",
+{1-2 frases: hallazgos no caracterizables con la presente técnica, se sugiere correlación clínica y revisión directa de imágenes}""",
         }
     }
 }
@@ -548,13 +549,23 @@ MODO INFORME LIMITADO:
 - NO intentar sonar como un informe radiológico anatómico completo.
 - NO inventar estructuras, lesiones ni localización anatómica que no esté en el JSON.
 - Emitir un informe breve, prudente y conservador.
+- PROHIBIDO mencionar detalles técnicos del procesamiento automatizado:
+  * NO mencionar valores HU numéricos, medias, rangos ni bandas de atenuación crudas.
+  * NO mencionar porcentaje de imágenes analizadas, cantidad de cortes ni "muestreo parcial".
+  * NO mencionar "confianza anatómica", "confianza global" ni métricas internas.
+  * NO mencionar "análisis automatizado", "procesamiento automático" ni "sistema de análisis".
+  * NO transcribir datos crudos del JSON al informe.
+- Traducir los datos cuantitativos a lenguaje radiológico genérico:
+  * En vez de "100-400 HU" → "focos de alta atenuación"
+  * En vez de "muestreo parcial de 13/53 imágenes" → "estudio con evaluación limitada"
+  * En vez de "confianza anatómica baja" → simplemente no asumir localización
 - Usar frases como:
-  "Estudio limitado para caracterización definitiva."
-  "Focos de [alta/baja] atenuación no caracterizables con los datos disponibles."
-  "Se sugiere revisión directa de las imágenes para correlación anatómica."
-  "Los hallazgos disponibles no permiten una caracterización definitiva."
+  "Estudio con evaluación limitada para caracterización definitiva."
+  "Se identifican focos de alta/baja atenuación sin localización anatómica precisa."
+  "Se sugiere revisión directa de las imágenes y correlación clínica."
+  "Los hallazgos no permiten una caracterización definitiva con la presente técnica."
 - NO redactar impresiones diagnósticas firmes.
-- Mencionar las limitaciones explícitamente.
+- El informe debe parecer escrito por un radiólogo cauteloso, NO por un sistema automatizado.
 
 === SALIDA ===
 Responde ÚNICAMENTE con el texto del informe. Sin markdown, sin explicaciones."""
