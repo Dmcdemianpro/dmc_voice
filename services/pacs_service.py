@@ -70,6 +70,17 @@ class PACSService:
         resp.raise_for_status()
         return resp.json()
 
+    async def get_series_instances(self, study_uid: str, series_uid: str) -> list[dict]:
+        """List all instances (metadata, not pixels) for a series via DICOMweb."""
+        resp = await self.client.get(
+            f"{DICOMWEB_RS}/studies/{study_uid}/series/{series_uid}/instances",
+            headers={"Accept": "application/dicom+json"},
+        )
+        if resp.status_code == 204:
+            return []
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_instance_frames(self, study_uid: str, series_uid: str, instance_uid: str) -> bytes:
         """Download DICOM instance via WADO-RS."""
         resp = await self.client.get(

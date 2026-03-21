@@ -256,6 +256,163 @@ def _analizar_rx(ds, pixel_array: np.ndarray) -> dict:
     }
 
 
+def analizar_serie(dicom_bytes_list: list[bytes], n_total_instancias: int = 0) -> dict:
+    """
+    Analiza múltiples cortes DICOM de una serie.
+    Si 1 solo corte → delega a analizar_dicom().
+    Si múltiples → combina pixel arrays y calcula estadísticas globales.
+    """
+    if len(dicom_bytes_list) == 1:
+        resultado = analizar_dicom(dicom_bytes_list[0])
+        resultado["n_cortes_analizados"] = 1
+        resultado["n_cortes_total"] = n_total_instancias or 1
+        return resultado
+
+    # Metadata técnica: del primer corte (común a toda la serie)
+    primer_ds = pydicom.dcmread(io.BytesIO(dicom_bytes_list[0]))
+    modalidad = getattr(primer_ds, "Modality", "").upper()
+
+    resultado = {
+        "modalidad": modalidad,
+        "metadata_tecnica": _extraer_metadata(primer_ds),
+        "analisis_cuantitativo": None,
+        "advertencias_tecnicas": [],
+        "n_cortes_analizados": len(dicom_bytes_list),
+        "n_cortes_total": n_total_instancias or len(dicom_bytes_list),
+    }
+
+    # Collect pixel arrays from all slices
+    pixel_arrays = []
+    for dcm_bytes in dicom_bytes_list:
+        try:
+            ds = pydicom.dcmread(io.BytesIO(dcm_bytes))
+            if hasattr(ds, "PixelData"):
+                pixel_arrays.append((ds, ds.pixel_array.astype(float)))
+        except Exception as e:
+            resultado["advertencias_tecnicas"].append(f"Error leyendo corte: {e}")
+
+    if not pixel_arrays:
+        return resultado
+
+    try:
+        if modalidad in ("CT", "TC"):
+            resultado["analisis_cuantitativo"] = _analizar_hu_multislice(pixel_arrays)
+        elif modalidad in ("MR", "RM"):
+            resultado["analisis_cuantitativo"] = _analizar_rm_multislice(pixel_arrays)
+        elif modalidad in ("US", "ECO"):
+            # Ecografía: usar solo primer corte (no es volumétrica)
+            ds0, pa0 = pixel_arrays[0]
+            resultado["analisis_cuantitativo"] = _analizar_eco(ds0, pa0)
+        elif modalidad in ("DX", "CR", "RX"):
+            ds0, pa0 = pixel_arrays[0]
+            resultado["analisis_cuantitativo"] = _analizar_rx(ds0, pa0)
+    except Exception as e:
+        resultado["advertencias_tecnicas"].append(f"Error en análisis multi-corte: {e}")
+
+    return resultado
+
+
+def _analizar_hu_multislice(pixel_arrays: list[tuple]) -> dict:
+    """Análisis Hounsfield combinando múltiples cortes TC."""
+    all_hu = []
+    for ds, pixel_array in pixel_arrays:
+        slope = float(getattr(ds, "RescaleSlope", 1))
+        intercept = float(getattr(ds, "RescaleIntercept", -1024))
+        hu_slice = pixel_array * slope + intercept
+        all_hu.append(hu_slice.ravel())
+
+    hu_combined = np.concatenate(all_hu)
+    total = hu_combined.size
+
+    distribucion = {}
+    for tejido, (hu_min, hu_max) in HU_RANGES_TC.items():
+        mascara = (hu_combined >= hu_min) & (hu_combined <= hu_max)
+        n_pixels = int(mascara.sum())
+        distribucion[tejido] = {
+            "porcentaje": round((n_pixels / total) * 100, 2),
+            "hu_media": round(float(hu_combined[mascara].mean()), 1) if mascara.any() else None,
+        }
+
+    hallazgos_automaticos = []
+    if distribucion["calcificacion"]["porcentaje"] > 2.0:
+        hallazgos_automaticos.append(
+            f"Calcificaciones presentes ({distribucion['calcificacion']['porcentaje']}% del volumen)"
+        )
+    if distribucion["metal"]["porcentaje"] > 0.1:
+        hallazgos_automaticos.append("Material metálico detectado (implante o contraste denso)")
+    if distribucion["sangre_aguda"]["porcentaje"] > 1.5:
+        hallazgos_automaticos.append(
+            f"Densidades compatibles con sangre aguda ({distribucion['sangre_aguda']['porcentaje']}%)"
+        )
+    if distribucion["aire"]["porcentaje"] > 60:
+        hallazgos_automaticos.append("Alta proporción de aire — confirmar región torácica")
+
+    return {
+        "tipo": "TC_Hounsfield",
+        "estadisticas_globales": {
+            "hu_min":   round(float(hu_combined.min()), 1),
+            "hu_max":   round(float(hu_combined.max()), 1),
+            "hu_media": round(float(hu_combined.mean()), 1),
+            "hu_desv":  round(float(hu_combined.std()), 1),
+        },
+        "distribucion_tejidos": distribucion,
+        "hallazgos_automaticos": hallazgos_automaticos,
+    }
+
+
+def _analizar_rm_multislice(pixel_arrays: list[tuple]) -> dict:
+    """Análisis RM combinando múltiples cortes."""
+    all_pixels = np.concatenate([pa.ravel() for _, pa in pixel_arrays])
+    total = all_pixels.size
+    p5, p25, p50, p75, p95 = np.percentile(all_pixels, [5, 25, 50, 75, 95])
+
+    # Params from first slice
+    ds0 = pixel_arrays[0][0]
+    params_secuencia = {}
+    for param in RM_SEQUENCE_PARAMS:
+        val = getattr(ds0, param, None)
+        if val is not None:
+            params_secuencia[param] = str(val)
+
+    te = float(getattr(ds0, "EchoTime", 0) or 0)
+    tr = float(getattr(ds0, "RepetitionTime", 0) or 0)
+    tipo_secuencia = "No determinado"
+    if tr > 0 and te > 0:
+        if tr < 800 and te < 30:
+            tipo_secuencia = "T1 (TR corto, TE corto)"
+        elif tr > 2000 and te > 80:
+            tipo_secuencia = "T2 (TR largo, TE largo)"
+        elif tr > 6000 and te > 80:
+            tipo_secuencia = "FLAIR / PD (TR muy largo)"
+
+    # SNR from first slice
+    pa0 = pixel_arrays[0][1]
+    h, w = pa0.shape[-2], pa0.shape[-1]
+    roi_signal = pa0[..., h // 4:3 * h // 4, w // 4:3 * w // 4]
+    roi_noise = pa0[..., :h // 10, :w // 10]
+    snr_estimado = None
+    if float(roi_noise.std()) > 0:
+        snr_estimado = round(float(roi_signal.mean()) / float(roi_noise.std()), 1)
+
+    return {
+        "tipo": "RM_Intensidades",
+        "campo_magnetico_T": str(getattr(ds0, "MagneticFieldStrength", "No especificado")),
+        "tipo_secuencia_inferido": tipo_secuencia,
+        "parametros_secuencia": params_secuencia,
+        "estadisticas_senal": {
+            "senal_min":    round(float(all_pixels.min()), 1),
+            "senal_max":    round(float(all_pixels.max()), 1),
+            "senal_media":  round(float(all_pixels.mean()), 1),
+            "senal_desv":   round(float(all_pixels.std()), 1),
+            "p5":           round(float(p5), 1),
+            "p95":          round(float(p95), 1),
+            "snr_estimado": snr_estimado,
+        },
+        "zonas_hiperintensas_pct": round(float((all_pixels > p95).sum() / total * 100), 2),
+        "zonas_hipointensas_pct": round(float((all_pixels < p5).sum() / total * 100), 2),
+    }
+
+
 def construir_contexto_para_claude(analisis: dict) -> str:
     """
     Convierte el análisis DICOM en texto estructurado para enviar a Claude API.
@@ -264,6 +421,9 @@ def construir_contexto_para_claude(analisis: dict) -> str:
     meta = analisis["metadata_tecnica"]
     cuant = analisis["analisis_cuantitativo"]
     modalidad = analisis["modalidad"]
+
+    n_analizados = analisis.get("n_cortes_analizados")
+    n_total = analisis.get("n_cortes_total")
 
     lineas = [
         "=== DATOS TÉCNICOS DEL ESTUDIO (extraídos del DICOM) ===",
@@ -276,6 +436,12 @@ def construir_contexto_para_claude(analisis: dict) -> str:
         f"N° de cortes: {meta['n_cortes']}",
         f"Equipo: {meta['fabricante']} {meta['modelo_equipo']}",
     ]
+
+    if n_analizados and n_total:
+        if n_analizados < n_total:
+            lineas.append(f"Análisis basado en {n_analizados} de {n_total} cortes (muestreo equidistante)")
+        else:
+            lineas.append(f"Análisis basado en {n_analizados} cortes (serie completa)")
 
     if modalidad in ("CT", "TC") and cuant:
         lineas += [
