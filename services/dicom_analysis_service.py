@@ -14,7 +14,7 @@ from typing import Optional
 # Etiquetas neutras — sin diagnóstico implícito
 HU_RANGES_TC = {
     "aire":                      (-1000, -700),
-    "baja_atenuacion_pulmonar":  (-700,  -200),
+    "baja_atenuacion_extracraneal":  (-700,  -200),
     "baja_atenuacion_grasa":     (-200,  -10),
     "atenuacion_agua_tejidos":   (-10,   80),
     "atenuacion_50_100":         (50,    100),
@@ -115,19 +115,19 @@ def _analizar_hu(ds, pixel_array: np.ndarray) -> dict:
     observaciones = []
     if distribucion["alta_atenuacion_100_400"]["porcentaje"] > 2.0:
         observaciones.append(
-            f"Banda 100-400 HU elevada ({distribucion['alta_atenuacion_100_400']['porcentaje']}% del volumen)"
+            f"Alta atenuación 100–400 HU: {distribucion['alta_atenuacion_100_400']['porcentaje']}%"
         )
     if distribucion["muy_alta_atenuacion_gt1000"]["porcentaje"] > 0.1:
         observaciones.append(
-            f"Banda >1000 HU presente ({distribucion['muy_alta_atenuacion_gt1000']['porcentaje']}%)"
+            f"Muy alta atenuación >1000 HU: {distribucion['muy_alta_atenuacion_gt1000']['porcentaje']}%"
         )
     if distribucion["atenuacion_50_100"]["porcentaje"] > 1.5:
         observaciones.append(
-            f"Banda 50-100 HU elevada ({distribucion['atenuacion_50_100']['porcentaje']}%)"
+            f"Atenuación 50–100 HU: {distribucion['atenuacion_50_100']['porcentaje']}%"
         )
     if distribucion["aire"]["porcentaje"] > 60:
         observaciones.append(
-            f"Proporción de aire elevada ({distribucion['aire']['porcentaje']}%)"
+            f"Aire: {distribucion['aire']['porcentaje']}%"
         )
 
     return {
@@ -201,11 +201,11 @@ def _analizar_eco(ds, pixel_array: np.ndarray) -> dict:
     observaciones = []
     if pct_anecoico > 5:
         observaciones.append(
-            f"Zonas anecoicas presentes ({pct_anecoico}%) — posible componente quístico o líquido"
+            f"Zonas anecoicas: {pct_anecoico}%"
         )
     if pct_hiperecoico > 20:
         observaciones.append(
-            f"Alta ecogenicidad ({pct_hiperecoico}%) — considerar grasa, cálculos o gas"
+            f"Alta ecogenicidad: {pct_hiperecoico}%"
         )
 
     return {
@@ -236,11 +236,11 @@ def _analizar_rx(ds, pixel_array: np.ndarray) -> dict:
     observaciones = []
     if pct_radioopaco > 15:
         observaciones.append(
-            f"Alta densidad radiológica ({pct_radioopaco}%) — posible consolidación, derrame o calcificación"
+            f"Alta densidad radiológica: {pct_radioopaco}%"
         )
     if pct_hiperluente > 30:
         observaciones.append(
-            f"Alta hiperlucencia ({pct_hiperluente}%) — confirmar hiperinsuflación o neumotórax"
+            f"Alta hiperlucencia: {pct_hiperluente}%"
         )
 
     return {
@@ -340,19 +340,19 @@ def _analizar_hu_multislice(pixel_arrays: list[tuple]) -> dict:
     observaciones = []
     if distribucion["alta_atenuacion_100_400"]["porcentaje"] > 2.0:
         observaciones.append(
-            f"Banda 100-400 HU elevada ({distribucion['alta_atenuacion_100_400']['porcentaje']}% del volumen)"
+            f"Alta atenuación 100–400 HU: {distribucion['alta_atenuacion_100_400']['porcentaje']}%"
         )
     if distribucion["muy_alta_atenuacion_gt1000"]["porcentaje"] > 0.1:
         observaciones.append(
-            f"Banda >1000 HU presente ({distribucion['muy_alta_atenuacion_gt1000']['porcentaje']}%)"
+            f"Muy alta atenuación >1000 HU: {distribucion['muy_alta_atenuacion_gt1000']['porcentaje']}%"
         )
     if distribucion["atenuacion_50_100"]["porcentaje"] > 1.5:
         observaciones.append(
-            f"Banda 50-100 HU elevada ({distribucion['atenuacion_50_100']['porcentaje']}%)"
+            f"Atenuación 50–100 HU: {distribucion['atenuacion_50_100']['porcentaje']}%"
         )
     if distribucion["aire"]["porcentaje"] > 60:
         observaciones.append(
-            f"Proporción de aire elevada ({distribucion['aire']['porcentaje']}%)"
+            f"Aire: {distribucion['aire']['porcentaje']}%"
         )
 
     return {
@@ -421,133 +421,261 @@ def _analizar_rm_multislice(pixel_arrays: list[tuple]) -> dict:
     }
 
 
+# ── Evaluación de confianza y prioridad por serie ─────────────────────────
+
+# Display labels for distribution keys (neutral, user-facing)
+_DIST_LABELS = {
+    "aire":                       "Aire",
+    "baja_atenuacion_extracraneal": "Baja atenuación extracraneal",
+    "baja_atenuacion_grasa":      "Baja atenuación grasa",
+    "atenuacion_agua_tejidos":    "Atenuación agua/tejidos",
+    "atenuacion_50_100":          "Atenuación 50–100 HU",
+    "alta_atenuacion_100_400":    "Alta atenuación 100–400 HU",
+    "alta_atenuacion_400_1000":   "Alta atenuación 400–1000 HU",
+    "muy_alta_atenuacion_gt1000": "Muy alta atenuación >1000 HU",
+}
+
+
+def _evaluar_confianza_serie(serie: dict) -> dict:
+    """Evalúa confianza anatómica, utilidad para reporte y contenido extracraneal."""
+    meta = serie.get("metadata_tecnica", {})
+    cuant = serie.get("analisis_cuantitativo")
+    n_analizados = serie.get("n_cortes_analizados", 0)
+    n_total = serie.get("n_cortes_total", 0)
+
+    # ── Confianza anatómica ──
+    body_part = str(meta.get("parte_del_cuerpo", "")).strip()
+    grosor_raw = meta.get("grosor_corte_mm", "No especificado")
+    try:
+        grosor = float(grosor_raw)
+    except (ValueError, TypeError):
+        grosor = None
+
+    score = 0
+    if body_part and body_part != "No especificado":
+        score += 2
+    if n_total >= 20:
+        score += 2
+    elif n_total >= 5:
+        score += 1
+    if grosor is not None and grosor <= 5.0:
+        score += 1
+
+    if score >= 4:
+        confianza_anat = "alta"
+    elif score >= 2:
+        confianza_anat = "media"
+    else:
+        confianza_anat = "baja"
+
+    # ── Útil para reporte ──
+    util_reporte = "sí" if confianza_anat in ("alta", "media") and n_analizados >= 3 else "no"
+
+    # ── Contenido extracraneal ──
+    contenido_extra = "bajo"
+    if cuant and cuant.get("distribucion_atenuacion"):
+        dist = cuant["distribucion_atenuacion"]
+        pct_aire = dist.get("aire", {}).get("porcentaje", 0)
+        pct_extra = dist.get("baja_atenuacion_extracraneal", {}).get("porcentaje", 0)
+        if pct_extra > 10 or pct_aire > 40:
+            contenido_extra = "alto"
+        elif pct_extra > 5 or pct_aire > 20:
+            contenido_extra = "moderado"
+
+    return {
+        "confianza_anatomica": confianza_anat,
+        "serie_util_reporte": util_reporte,
+        "contenido_extracraneal": contenido_extra,
+        "_score": score,
+    }
+
+
+def _priorizar_series(resultados_series: list[dict]) -> list[dict]:
+    """Ordena series por prioridad para evaluación (mayor score primero)."""
+    evaluaciones = []
+    for serie in resultados_series:
+        ev = _evaluar_confianza_serie(serie)
+        serie["_evaluacion"] = ev
+        n_total = serie.get("n_cortes_total", 0)
+        # Priority: confidence score + number of slices
+        priority = ev["_score"] * 100 + n_total
+        evaluaciones.append((priority, serie))
+    evaluaciones.sort(key=lambda x: x[0], reverse=True)
+    return [s for _, s in evaluaciones]
+
+
+def _construir_limitaciones(series_priorizadas: list[dict], total_instancias: int, total_analizadas: int) -> list[str]:
+    """Construye la sección de limitaciones del análisis."""
+    limitaciones = []
+
+    # Región no especificada
+    meta = series_priorizadas[0].get("metadata_tecnica", {})
+    body_part = str(meta.get("parte_del_cuerpo", "")).strip()
+    if not body_part or body_part == "No especificado":
+        limitaciones.append("Región anatómica no especificada en metadatos DICOM.")
+
+    # Muestreo parcial
+    if total_analizadas < total_instancias:
+        pct = round(total_analizadas / total_instancias * 100, 1) if total_instancias > 0 else 0
+        limitaciones.append(
+            f"Muestreo parcial del estudio: {total_analizadas} de {total_instancias} imágenes analizadas ({pct}%)."
+        )
+
+    # Series con baja confianza
+    for i, serie in enumerate(series_priorizadas):
+        ev = serie.get("_evaluacion", {})
+        if ev.get("confianza_anatomica") == "baja":
+            desc = serie.get("metadata_tecnica", {}).get("descripcion_serie", f"Serie {i+1}")
+            limitaciones.append(f"Serie \"{desc}\" con baja confianza anatómica.")
+
+    limitaciones.append("La caracterización anatómica definitiva requiere revisión directa de las imágenes.")
+
+    return limitaciones
+
+
 def construir_contexto_multiserie(
     resultados_series: list[dict],
     total_instancias: int,
     total_analizadas: int,
 ) -> str:
     """
-    Construye un contexto unificado para Claude a partir de múltiples series.
-    Cada serie se reporta por separado (no se mezclan fases).
+    Construye un contexto técnico neutro, priorizado por serie, con limitaciones.
+    Sin lenguaje diagnóstico. Solo bandas de atenuación, focos y datos cuantitativos.
     """
     if len(resultados_series) == 1:
-        # Single series: use standard builder
         return construir_contexto_para_claude(resultados_series[0])
 
-    meta = resultados_series[0]["metadata_tecnica"]
-    modalidad = resultados_series[0]["modalidad"]
+    # Priorizar series
+    series_priorizadas = _priorizar_series(resultados_series)
+    meta = series_priorizadas[0]["metadata_tecnica"]
+    modalidad = series_priorizadas[0]["modalidad"]
 
     lineas = [
-        "=== DATOS TÉCNICOS DEL ESTUDIO (extraídos del DICOM) ===",
+        "ANÁLISIS DICOM",
+        "",
         f"Modalidad: {meta['modalidad']}",
-        f"Descripción estudio: {meta['descripcion_estudio']}",
-        f"Región anatómica: {meta['parte_del_cuerpo']}",
+        f"Región: {meta['parte_del_cuerpo']}",
+        f"Descripción del estudio: {meta['descripcion_estudio']}",
         f"Equipo: {meta['fabricante']} {meta['modelo_equipo']}",
         f"Institución: {meta['institucion']}",
-        f"Total de series analizadas: {len(resultados_series)}",
-        f"Total de imágenes en estudio: {total_instancias}",
-        f"Imágenes analizadas (muestreo equidistante): {total_analizadas}",
+        "",
+        "Resumen general:",
+        f"- Total de series detectadas: {len(series_priorizadas)}",
+        f"- Total de imágenes del estudio: {total_instancias}",
+        f"- Imágenes analizadas por muestreo: {total_analizadas}",
     ]
 
-    # Each series gets its own section
-    for i, serie in enumerate(resultados_series, 1):
+    # Render each series with priority labels
+    for i, serie in enumerate(series_priorizadas):
         s_meta = serie["metadata_tecnica"]
         s_cuant = serie.get("analisis_cuantitativo")
+        ev = serie.get("_evaluacion", {})
         n_anal = serie.get("n_cortes_analizados", "?")
         n_total = serie.get("n_cortes_total", "?")
         desc = s_meta.get("descripcion_serie", "Sin descripción")
 
+        if i == 0:
+            label = "Serie prioritaria para evaluación"
+        else:
+            label = f"Serie secundaria" if len(series_priorizadas) == 2 else f"Serie {i+1} (no prioritaria)"
+            if ev.get("confianza_anatomica") == "baja" or ev.get("serie_util_reporte") == "no":
+                label += " — no prioritaria para reporte"
+
         lineas += [
             "",
-            f"--- Serie {i}: {desc} ({n_anal} de {n_total} cortes) ---",
-            f"Grosor de corte: {s_meta.get('grosor_corte_mm', '?')} mm",
-            f"Espaciado de píxeles: {s_meta.get('espaciado_pixeles', '?')}",
+            f"{label}:",
+            f"- Serie: {desc}",
+            f"- Cortes analizados: {n_anal} de {n_total}",
+            f"- Grosor de corte: {s_meta.get('grosor_corte_mm', '?')} mm",
+            f"- Espaciado de píxeles: {s_meta.get('espaciado_pixeles', '?')}",
+            f"- Confianza anatómica: {ev.get('confianza_anatomica', '?')}",
+            f"- Serie útil para reporte: {ev.get('serie_util_reporte', '?')}",
+            f"- Contenido extracraneal: {ev.get('contenido_extracraneal', '?')}",
         ]
 
         contraste = s_meta.get("contraste", "")
         if contraste and contraste != "No especificado":
-            lineas.append(f"Contraste: {contraste} ({s_meta.get('ruta_contraste', '')})")
+            lineas.append(f"- Contraste: {contraste} ({s_meta.get('ruta_contraste', '')})")
 
+        # Distribution (TC)
         if modalidad in ("CT", "TC") and s_cuant:
-            stats = s_cuant["estadisticas_globales"]
-            lineas += [
-                f"HU promedio: {stats['hu_media']} (rango: {stats['hu_min']} a {stats['hu_max']})",
-            ]
+            dist_label = "Distribución de atenuación de la serie prioritaria" if i == 0 else "Distribución de atenuación de la serie secundaria"
+            lineas += ["", f"{dist_label}:"]
             dist = s_cuant["distribucion_atenuacion"]
-            bandas_relevantes = [
-                (t, d) for t, d in dist.items() if d["porcentaje"] > 0.5
-            ]
-            for banda, datos in bandas_relevantes:
-                lineas.append(
-                    f"  {banda}: {datos['porcentaje']}%"
-                    + (f" (HU media: {datos['hu_media']})" if datos["hu_media"] else "")
-                )
-            if s_cuant.get("observaciones"):
-                for h in s_cuant["observaciones"]:
-                    lineas.append(f"  * {h}")
+            for key in HU_RANGES_TC:
+                if key in dist:
+                    label_name = _DIST_LABELS.get(key, key)
+                    pct = dist[key]["porcentaje"]
+                    hu_m = dist[key].get("hu_media")
+                    line = f"- {label_name}: {pct}%"
+                    if hu_m is not None:
+                        line += f" (HU media: {hu_m})"
+                    lineas.append(line)
 
+        # RM
         elif modalidad in ("MR", "RM") and s_cuant:
             lineas += [
-                f"Secuencia inferida: {s_cuant['tipo_secuencia_inferido']}",
-                f"Campo magnético: {s_cuant['campo_magnetico_T']} T",
-                f"SNR estimado: {s_cuant['estadisticas_senal']['snr_estimado']}",
-                f"Zonas hiperintensas: {s_cuant['zonas_hiperintensas_pct']}%",
-                f"Zonas hipointensas: {s_cuant['zonas_hipointensas_pct']}%",
+                f"- Secuencia inferida: {s_cuant['tipo_secuencia_inferido']}",
+                f"- Campo magnético: {s_cuant['campo_magnetico_T']} T",
+                f"- SNR estimado: {s_cuant['estadisticas_senal']['snr_estimado']}",
+                f"- Zonas hiperintensas: {s_cuant['zonas_hiperintensas_pct']}%",
+                f"- Zonas hipointensas: {s_cuant['zonas_hipointensas_pct']}%",
             ]
 
+        # ECO
         elif modalidad in ("US", "ECO") and s_cuant:
             lineas += [
-                f"Anecoico: {s_cuant['distribucion']['pct_anecoico']}%",
-                f"Hipoecoico: {s_cuant['distribucion']['pct_hipoecoico']}%",
-                f"Hiperecoico: {s_cuant['distribucion']['pct_hiperecoico']}%",
+                f"- Anecoico: {s_cuant['distribucion']['pct_anecoico']}%",
+                f"- Hipoecoico: {s_cuant['distribucion']['pct_hipoecoico']}%",
+                f"- Hiperecoico: {s_cuant['distribucion']['pct_hiperecoico']}%",
             ]
-            if s_cuant.get("observaciones"):
-                for h in s_cuant["observaciones"]:
-                    lineas.append(f"  * {h}")
 
+        # RX
         elif modalidad in ("DX", "CR", "RX") and s_cuant:
             lineas += [
-                f"kVp: {s_cuant['kvp']} / mAs: {s_cuant['mas']}",
-                f"Hiperlucencia: {s_cuant['distribucion']['pct_hiperlucente']}%",
-                f"Radiopacidad: {s_cuant['distribucion']['pct_radioopaco']}%",
+                f"- kVp: {s_cuant['kvp']} / mAs: {s_cuant['mas']}",
+                f"- Hiperlucencia: {s_cuant['distribucion']['pct_hiperlucente']}%",
+                f"- Radiopacidad: {s_cuant['distribucion']['pct_radioopaco']}%",
             ]
-            if s_cuant.get("observaciones"):
-                for h in s_cuant["observaciones"]:
-                    lineas.append(f"  * {h}")
 
         advs = serie.get("advertencias_tecnicas", [])
         if advs:
             for adv in advs:
-                lineas.append(f"  ! {adv}")
+                lineas.append(f"- Advertencia: {adv}")
 
-    # Global findings summary across all series
-    all_hallazgos = []
-    for serie in resultados_series:
-        cuant = serie.get("analisis_cuantitativo")
-        if cuant and cuant.get("observaciones"):
-            desc = serie["metadata_tecnica"].get("descripcion_serie", "")
-            for h in cuant["observaciones"]:
-                all_hallazgos.append(f"{h} (serie: {desc})" if desc else h)
+    # Limitaciones
+    limitaciones = _construir_limitaciones(series_priorizadas, total_instancias, total_analizadas)
+    lineas += ["", "Limitaciones:"]
+    for lim in limitaciones:
+        lineas.append(f"- {lim}")
 
-    if all_hallazgos:
-        lineas += [
-            "",
-            "=== OBSERVACIONES CUANTITATIVAS (todas las series) ===",
-        ]
-        # Deduplicate similar findings
-        seen = set()
-        for h in all_hallazgos:
-            if h not in seen:
-                seen.add(h)
-                lineas.append(f"  - {h}")
+    # Resumen técnico priorizado
+    serie_prio = series_priorizadas[0]
+    desc_prio = serie_prio.get("metadata_tecnica", {}).get("descripcion_serie", "Serie principal")
+    lineas += [
+        "",
+        "Resumen técnico priorizado:",
+        f"- Serie prioritaria para evaluación: {desc_prio}",
+    ]
+
+    # Collect observations from priority series
+    cuant_prio = serie_prio.get("analisis_cuantitativo")
+    if cuant_prio and cuant_prio.get("observaciones"):
+        obs_list = cuant_prio["observaciones"]
+        bandas_str = "; ".join(obs_list)
+        lineas.append(f"- Se identifican focos en bandas de atenuación: {bandas_str}")
+    else:
+        lineas.append("- No se identifican focos relevantes en bandas de atenuación.")
+
+    lineas.append("- Hallazgos cuantitativos sin caracterización anatómica definitiva en esta etapa.")
 
     return "\n".join(lineas)
 
 
 def construir_contexto_para_claude(analisis: dict) -> str:
     """
-    Convierte el análisis DICOM en texto estructurado para enviar a Claude API.
-    Solo texto, sin imágenes, sin datos del paciente.
+    Convierte el análisis DICOM de una serie en texto técnico neutro.
+    Formato unificado con confianza, limitaciones y resumen priorizado.
     """
     meta = analisis["metadata_tecnica"]
     cuant = analisis["analisis_cuantitativo"]
@@ -556,86 +684,112 @@ def construir_contexto_para_claude(analisis: dict) -> str:
     n_analizados = analisis.get("n_cortes_analizados")
     n_total = analisis.get("n_cortes_total")
 
+    # Evaluate series confidence
+    ev = _evaluar_confianza_serie(analisis)
+    analisis["_evaluacion"] = ev
+
     lineas = [
-        "=== DATOS TÉCNICOS DEL ESTUDIO (extraídos del DICOM) ===",
+        "ANÁLISIS DICOM",
+        "",
         f"Modalidad: {meta['modalidad']}",
-        f"Descripción: {meta['descripcion_estudio']} / {meta['descripcion_serie']}",
-        f"Región anatómica: {meta['parte_del_cuerpo']}",
-        f"Grosor de corte: {meta['grosor_corte_mm']} mm",
-        f"Espaciado de píxeles: {meta['espaciado_pixeles']}",
-        f"Contraste: {meta['contraste']} ({meta['ruta_contraste']})",
-        f"N° de cortes: {meta['n_cortes']}",
+        f"Región: {meta['parte_del_cuerpo']}",
+        f"Descripción del estudio: {meta['descripcion_estudio']}",
         f"Equipo: {meta['fabricante']} {meta['modelo_equipo']}",
+        f"Institución: {meta['institucion']}",
+        "",
+        "Resumen general:",
+        "- Total de series detectadas: 1",
+        f"- Total de imágenes del estudio: {n_total or meta.get('n_cortes', '?')}",
+        f"- Imágenes analizadas por muestreo: {n_analizados or '?'}",
+        "",
+        "Serie prioritaria para evaluación:",
+        f"- Serie: {meta.get('descripcion_serie', 'Sin descripción')}",
+        f"- Cortes analizados: {n_analizados or '?'} de {n_total or '?'}",
+        f"- Grosor de corte: {meta['grosor_corte_mm']} mm",
+        f"- Espaciado de píxeles: {meta['espaciado_pixeles']}",
+        f"- Confianza anatómica: {ev['confianza_anatomica']}",
+        f"- Serie útil para reporte: {ev['serie_util_reporte']}",
+        f"- Contenido extracraneal: {ev['contenido_extracraneal']}",
     ]
 
-    if n_analizados and n_total:
-        if n_analizados < n_total:
-            lineas.append(f"Análisis basado en {n_analizados} de {n_total} cortes (muestreo equidistante)")
-        else:
-            lineas.append(f"Análisis basado en {n_analizados} cortes (serie completa)")
+    contraste = meta.get("contraste", "")
+    if contraste and contraste != "No especificado":
+        lineas.append(f"- Contraste: {contraste} ({meta.get('ruta_contraste', '')})")
 
+    # Distribution (TC)
     if modalidad in ("CT", "TC") and cuant:
-        lineas += [
-            "",
-            "=== ANÁLISIS CUANTITATIVO DE DENSIDADES (Unidades Hounsfield) ===",
-            f"HU promedio global: {cuant['estadisticas_globales']['hu_media']}",
-            f"Rango HU: {cuant['estadisticas_globales']['hu_min']} a {cuant['estadisticas_globales']['hu_max']}",
-        ]
+        lineas += ["", "Distribución de atenuación de la serie prioritaria:"]
         dist = cuant["distribucion_atenuacion"]
-        for banda, datos in dist.items():
-            if datos["porcentaje"] > 0.5:
-                lineas.append(
-                    f"  {banda}: {datos['porcentaje']}%"
-                    + (f" (HU media: {datos['hu_media']})" if datos["hu_media"] else "")
-                )
-        if cuant.get("observaciones"):
-            lineas += ["", "=== OBSERVACIONES CUANTITATIVAS ==="]
-            for obs in cuant["observaciones"]:
-                lineas.append(f"  - {obs}")
+        for key in HU_RANGES_TC:
+            if key in dist:
+                label_name = _DIST_LABELS.get(key, key)
+                pct = dist[key]["porcentaje"]
+                hu_m = dist[key].get("hu_media")
+                line = f"- {label_name}: {pct}%"
+                if hu_m is not None:
+                    line += f" (HU media: {hu_m})"
+                lineas.append(line)
 
     elif modalidad in ("MR", "RM") and cuant:
         lineas += [
             "",
-            "=== PARÁMETROS DE SECUENCIA RM ===",
-            f"Campo magnético: {cuant['campo_magnetico_T']} T",
-            f"Tipo de secuencia inferido: {cuant['tipo_secuencia_inferido']}",
-            f"SNR estimado: {cuant['estadisticas_senal']['snr_estimado']}",
-            f"Zonas hiperintensas: {cuant['zonas_hiperintensas_pct']}%",
-            f"Zonas hipointensas: {cuant['zonas_hipointensas_pct']}%",
+            "Parámetros de secuencia:",
+            f"- Campo magnético: {cuant['campo_magnetico_T']} T",
+            f"- Secuencia inferida: {cuant['tipo_secuencia_inferido']}",
+            f"- SNR estimado: {cuant['estadisticas_senal']['snr_estimado']}",
+            f"- Zonas hiperintensas: {cuant['zonas_hiperintensas_pct']}%",
+            f"- Zonas hipointensas: {cuant['zonas_hipointensas_pct']}%",
         ]
         for param, val in cuant["parametros_secuencia"].items():
-            lineas.append(f"  {param}: {val}")
+            lineas.append(f"- {param}: {val}")
 
     elif modalidad in ("US", "ECO") and cuant:
         lineas += [
             "",
-            "=== ANÁLISIS DE ECOGENICIDAD ===",
-            f"Frecuencia transductor: {cuant['frecuencia_transductor']}",
-            f"Zonas anecoicas: {cuant['distribucion']['pct_anecoico']}%",
-            f"Zonas hipoecoicas: {cuant['distribucion']['pct_hipoecoico']}%",
-            f"Zonas hiperecoicas: {cuant['distribucion']['pct_hiperecoico']}%",
+            "Ecogenicidad:",
+            f"- Frecuencia transductor: {cuant['frecuencia_transductor']}",
+            f"- Anecoico: {cuant['distribucion']['pct_anecoico']}%",
+            f"- Hipoecoico: {cuant['distribucion']['pct_hipoecoico']}%",
+            f"- Hiperecoico: {cuant['distribucion']['pct_hiperecoico']}%",
         ]
-        if cuant["observaciones"]:
-            lineas += ["", "=== OBSERVACIONES CUANTITATIVAS ==="]
-            for h in cuant["observaciones"]:
-                lineas.append(f"  - {h}")
 
     elif modalidad in ("DX", "CR", "RX") and cuant:
         lineas += [
             "",
-            "=== ANÁLISIS DE DENSIDADES RADIOLÓGICAS ===",
-            f"kVp: {cuant['kvp']} / mAs: {cuant['mas']}",
-            f"Hiperlucencia: {cuant['distribucion']['pct_hiperlucente']}%",
-            f"Radiopacidad: {cuant['distribucion']['pct_radioopaco']}%",
+            "Densidades radiológicas:",
+            f"- kVp: {cuant['kvp']} / mAs: {cuant['mas']}",
+            f"- Hiperlucencia: {cuant['distribucion']['pct_hiperlucente']}%",
+            f"- Radiopacidad: {cuant['distribucion']['pct_radioopaco']}%",
         ]
-        if cuant["observaciones"]:
-            lineas += ["", "=== OBSERVACIONES CUANTITATIVAS ==="]
-            for h in cuant["observaciones"]:
-                lineas.append(f"  - {h}")
 
-    if analisis["advertencias_tecnicas"]:
-        lineas += ["", "=== ADVERTENCIAS TÉCNICAS ==="]
+    # Limitaciones
+    limitaciones = _construir_limitaciones(
+        [analisis],
+        n_total or 0,
+        n_analizados or 0,
+    )
+    lineas += ["", "Limitaciones:"]
+    for lim in limitaciones:
+        lineas.append(f"- {lim}")
+
+    # Resumen técnico priorizado
+    desc_serie = meta.get("descripcion_serie", "Serie principal")
+    lineas += [
+        "",
+        "Resumen técnico priorizado:",
+        f"- Serie prioritaria para evaluación: {desc_serie}",
+    ]
+
+    if cuant and cuant.get("observaciones"):
+        bandas_str = "; ".join(cuant["observaciones"])
+        lineas.append(f"- Se identifican focos en bandas de atenuación: {bandas_str}")
+    else:
+        lineas.append("- No se identifican focos relevantes en bandas de atenuación.")
+
+    lineas.append("- Hallazgos cuantitativos sin caracterización anatómica definitiva en esta etapa.")
+
+    if analisis.get("advertencias_tecnicas"):
         for adv in analisis["advertencias_tecnicas"]:
-            lineas.append(f"  ! {adv}")
+            lineas.append(f"- Advertencia: {adv}")
 
     return "\n".join(lineas)
