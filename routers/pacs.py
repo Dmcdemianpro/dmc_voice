@@ -3,7 +3,10 @@ from fastapi.responses import StreamingResponse
 from typing import Optional
 
 from services.pacs_service import pacs_service
-from services.dicom_analysis_service import analizar_dicom, analizar_serie, construir_contexto_para_claude
+from services.dicom_analysis_service import (
+    analizar_dicom, analizar_serie,
+    construir_contexto_para_claude, construir_contexto_multiserie,
+)
 from middleware.auth_middleware import get_current_user
 from config import settings
 
@@ -47,68 +50,109 @@ async def analyze_study_from_pacs(
     current_user=Depends(get_current_user),
 ):
     """
-    Download representative slices from PACS, analyze them, and return
-    the same format as /analizar-dicom (compatible with frontend).
+    Download representative slices from ALL series in the study,
+    analyze each series independently, and return a unified context.
+    If series_uid is provided, analyze only that series.
     """
     try:
-        # 1. If no series_uid, pick the series with the most instances
-        if not series_uid:
+        # 1. Determine which series to analyze
+        if series_uid:
+            # Single series requested
+            series_to_analyze = [{"uid": series_uid, "desc": "", "n_instances": 0}]
+        else:
+            # All series in the study
             series_list = await pacs_service.get_study_series(study_uid)
             if not series_list:
                 raise HTTPException(404, "No se encontraron series para este estudio")
-            # Pick series with max NumberOfSeriesRelatedInstances (tag 00201209)
-            best = max(
-                series_list,
-                key=lambda s: int(pacs_service._val(s.get("00201209"), "0")),
-            )
-            series_uid = pacs_service._val(best.get("0020000E"))
-            if not series_uid:
-                raise HTTPException(404, "No se pudo determinar la serie principal")
+            series_to_analyze = []
+            for s in series_list:
+                uid = pacs_service._val(s.get("0020000E"))
+                if uid:
+                    series_to_analyze.append({
+                        "uid": uid,
+                        "desc": pacs_service._val(s.get("0008103E"), ""),
+                        "n_instances": int(pacs_service._val(s.get("00201209"), "0")),
+                    })
 
-        # 2. List instances in the chosen series
-        instances = await pacs_service.get_series_instances(study_uid, series_uid)
-        if not instances:
-            raise HTTPException(404, "No se encontraron instancias en la serie")
+        if not series_to_analyze:
+            raise HTTPException(404, "No se encontraron series válidas")
 
-        n_total = len(instances)
+        # 2. Analyze each series
+        resultados_series = []
+        total_instancias_estudio = 0
+        total_analizadas_estudio = 0
 
-        # 3. Sample equidistant slices if > MAX_SAMPLE_SLICES
-        if n_total > MAX_SAMPLE_SLICES:
-            step = n_total / MAX_SAMPLE_SLICES
-            indices = [int(i * step) for i in range(MAX_SAMPLE_SLICES)]
-            sampled = [instances[i] for i in indices]
-        else:
-            sampled = instances
+        for serie_info in series_to_analyze:
+            s_uid = serie_info["uid"]
 
-        # 4. Download each sampled instance
-        dicom_bytes_list = []
-        for inst in sampled:
-            inst_uid = pacs_service._val(inst.get("00080018"))  # SOPInstanceUID
-            if not inst_uid:
+            # List instances
+            instances = await pacs_service.get_series_instances(study_uid, s_uid)
+            if not instances:
                 continue
-            try:
-                dcm_bytes = await pacs_service.get_instance_frames(
-                    study_uid, series_uid, inst_uid
-                )
-                dicom_bytes_list.append(dcm_bytes)
-            except Exception:
-                pass  # Skip failed downloads, analyze what we got
 
-        if not dicom_bytes_list:
+            n_total = len(instances)
+            total_instancias_estudio += n_total
+
+            # Sample equidistant slices if > MAX_SAMPLE_SLICES
+            if n_total > MAX_SAMPLE_SLICES:
+                step = n_total / MAX_SAMPLE_SLICES
+                indices = [int(i * step) for i in range(MAX_SAMPLE_SLICES)]
+                sampled = [instances[i] for i in indices]
+            else:
+                sampled = instances
+
+            # Download each sampled instance
+            dicom_bytes_list = []
+            for inst in sampled:
+                inst_uid = pacs_service._val(inst.get("00080018"))
+                if not inst_uid:
+                    continue
+                try:
+                    dcm_bytes = await pacs_service.get_instance_frames(
+                        study_uid, s_uid, inst_uid
+                    )
+                    dicom_bytes_list.append(dcm_bytes)
+                except Exception:
+                    pass
+
+            if not dicom_bytes_list:
+                continue
+
+            total_analizadas_estudio += len(dicom_bytes_list)
+
+            # Run analysis for this series
+            analisis_serie = analizar_serie(dicom_bytes_list, n_total_instancias=n_total)
+            # Override description from series metadata
+            if serie_info["desc"]:
+                analisis_serie["metadata_tecnica"]["descripcion_serie"] = serie_info["desc"]
+
+            resultados_series.append(analisis_serie)
+
+        if not resultados_series:
             raise HTTPException(502, "No se pudo descargar ninguna instancia DICOM")
 
-        # 5. Run multi-slice analysis
-        analisis = analizar_serie(dicom_bytes_list, n_total_instancias=n_total)
+        # 3. Build unified context from all series
+        contexto = construir_contexto_multiserie(
+            resultados_series, total_instancias_estudio, total_analizadas_estudio
+        )
 
-        # 6. Build text context
-        contexto = construir_contexto_para_claude(analisis)
+        # 4. Use first series for top-level fields (modalidad, region)
+        primer = resultados_series[0]
 
-        # 7. Return same format as /analizar-dicom
         return {
-            "analisis": analisis,
+            "analisis": {
+                "modalidad": primer["modalidad"],
+                "metadata_tecnica": primer["metadata_tecnica"],
+                "analisis_cuantitativo": primer.get("analisis_cuantitativo"),
+                "advertencias_tecnicas": primer.get("advertencias_tecnicas", []),
+                "n_series_analizadas": len(resultados_series),
+                "n_cortes_analizados": total_analizadas_estudio,
+                "n_cortes_total": total_instancias_estudio,
+                "series_detalle": resultados_series,
+            },
             "contexto_texto": contexto,
-            "modalidad": analisis["modalidad"],
-            "region": analisis["metadata_tecnica"].get("parte_del_cuerpo", ""),
+            "modalidad": primer["modalidad"],
+            "region": primer["metadata_tecnica"].get("parte_del_cuerpo", ""),
         }
 
     except HTTPException:

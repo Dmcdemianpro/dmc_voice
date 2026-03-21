@@ -413,6 +413,129 @@ def _analizar_rm_multislice(pixel_arrays: list[tuple]) -> dict:
     }
 
 
+def construir_contexto_multiserie(
+    resultados_series: list[dict],
+    total_instancias: int,
+    total_analizadas: int,
+) -> str:
+    """
+    Construye un contexto unificado para Claude a partir de múltiples series.
+    Cada serie se reporta por separado (no se mezclan fases).
+    """
+    if len(resultados_series) == 1:
+        # Single series: use standard builder
+        return construir_contexto_para_claude(resultados_series[0])
+
+    meta = resultados_series[0]["metadata_tecnica"]
+    modalidad = resultados_series[0]["modalidad"]
+
+    lineas = [
+        "=== DATOS TÉCNICOS DEL ESTUDIO (extraídos del DICOM) ===",
+        f"Modalidad: {meta['modalidad']}",
+        f"Descripción estudio: {meta['descripcion_estudio']}",
+        f"Región anatómica: {meta['parte_del_cuerpo']}",
+        f"Equipo: {meta['fabricante']} {meta['modelo_equipo']}",
+        f"Institución: {meta['institucion']}",
+        f"Total de series analizadas: {len(resultados_series)}",
+        f"Total de imágenes en estudio: {total_instancias}",
+        f"Imágenes analizadas (muestreo equidistante): {total_analizadas}",
+    ]
+
+    # Each series gets its own section
+    for i, serie in enumerate(resultados_series, 1):
+        s_meta = serie["metadata_tecnica"]
+        s_cuant = serie.get("analisis_cuantitativo")
+        n_anal = serie.get("n_cortes_analizados", "?")
+        n_total = serie.get("n_cortes_total", "?")
+        desc = s_meta.get("descripcion_serie", "Sin descripción")
+
+        lineas += [
+            "",
+            f"--- Serie {i}: {desc} ({n_anal} de {n_total} cortes) ---",
+            f"Grosor de corte: {s_meta.get('grosor_corte_mm', '?')} mm",
+            f"Espaciado de píxeles: {s_meta.get('espaciado_pixeles', '?')}",
+        ]
+
+        contraste = s_meta.get("contraste", "")
+        if contraste and contraste != "No especificado":
+            lineas.append(f"Contraste: {contraste} ({s_meta.get('ruta_contraste', '')})")
+
+        if modalidad in ("CT", "TC") and s_cuant:
+            stats = s_cuant["estadisticas_globales"]
+            lineas += [
+                f"HU promedio: {stats['hu_media']} (rango: {stats['hu_min']} a {stats['hu_max']})",
+            ]
+            dist = s_cuant["distribucion_tejidos"]
+            tejidos_relevantes = [
+                (t, d) for t, d in dist.items() if d["porcentaje"] > 0.5
+            ]
+            for tejido, datos in tejidos_relevantes:
+                lineas.append(
+                    f"  {tejido.capitalize()}: {datos['porcentaje']}%"
+                    + (f" (HU media: {datos['hu_media']})" if datos["hu_media"] else "")
+                )
+            if s_cuant.get("hallazgos_automaticos"):
+                for h in s_cuant["hallazgos_automaticos"]:
+                    lineas.append(f"  * {h}")
+
+        elif modalidad in ("MR", "RM") and s_cuant:
+            lineas += [
+                f"Secuencia inferida: {s_cuant['tipo_secuencia_inferido']}",
+                f"Campo magnético: {s_cuant['campo_magnetico_T']} T",
+                f"SNR estimado: {s_cuant['estadisticas_senal']['snr_estimado']}",
+                f"Zonas hiperintensas: {s_cuant['zonas_hiperintensas_pct']}%",
+                f"Zonas hipointensas: {s_cuant['zonas_hipointensas_pct']}%",
+            ]
+
+        elif modalidad in ("US", "ECO") and s_cuant:
+            lineas += [
+                f"Anecoico: {s_cuant['distribucion']['pct_anecoico']}%",
+                f"Hipoecoico: {s_cuant['distribucion']['pct_hipoecoico']}%",
+                f"Hiperecoico: {s_cuant['distribucion']['pct_hiperecoico']}%",
+            ]
+            if s_cuant.get("hallazgos_automaticos"):
+                for h in s_cuant["hallazgos_automaticos"]:
+                    lineas.append(f"  * {h}")
+
+        elif modalidad in ("DX", "CR", "RX") and s_cuant:
+            lineas += [
+                f"kVp: {s_cuant['kvp']} / mAs: {s_cuant['mas']}",
+                f"Hiperlucencia: {s_cuant['distribucion']['pct_hiperlucente']}%",
+                f"Radiopacidad: {s_cuant['distribucion']['pct_radioopaco']}%",
+            ]
+            if s_cuant.get("hallazgos_automaticos"):
+                for h in s_cuant["hallazgos_automaticos"]:
+                    lineas.append(f"  * {h}")
+
+        advs = serie.get("advertencias_tecnicas", [])
+        if advs:
+            for adv in advs:
+                lineas.append(f"  ! {adv}")
+
+    # Global findings summary across all series
+    all_hallazgos = []
+    for serie in resultados_series:
+        cuant = serie.get("analisis_cuantitativo")
+        if cuant and cuant.get("hallazgos_automaticos"):
+            desc = serie["metadata_tecnica"].get("descripcion_serie", "")
+            for h in cuant["hallazgos_automaticos"]:
+                all_hallazgos.append(f"{h} (serie: {desc})" if desc else h)
+
+    if all_hallazgos:
+        lineas += [
+            "",
+            "=== RESUMEN DE HALLAZGOS AUTOMÁTICOS (todas las series) ===",
+        ]
+        # Deduplicate similar findings
+        seen = set()
+        for h in all_hallazgos:
+            if h not in seen:
+                seen.add(h)
+                lineas.append(f"  - {h}")
+
+    return "\n".join(lineas)
+
+
 def construir_contexto_para_claude(analisis: dict) -> str:
     """
     Convierte el análisis DICOM en texto estructurado para enviar a Claude API.
