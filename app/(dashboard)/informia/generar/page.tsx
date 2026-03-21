@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import {
   Sparkles, Upload, FileText, Loader2, ArrowLeft, Copy,
   Stethoscope, MapPin, ChevronDown, Star, Send, CheckCircle,
-  AlertTriangle, Activity, Microscope, Menu, X,
+  AlertTriangle, Activity, Microscope, Menu, X, Zap,
 } from "lucide-react";
 
 const mono = "var(--font-ibm-plex-mono), monospace";
@@ -69,6 +69,10 @@ export default function InformIAGenerarPage() {
   const [rating, setRating] = useState(0);
   const [ratingFeedback, setRatingFeedback] = useState("");
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
+
+  // Auto-classification: TC + Cerebro uses 3-step pipeline (no template needed)
+  const AUTO_CLASSIFY_COMBOS: Record<string, string[]> = { "TC": ["Cerebro"] };
+  const isAutoClassify = AUTO_CLASSIFY_COMBOS[selectedModality]?.includes(selectedRegion) ?? false;
 
   // Load modalities
   useEffect(() => {
@@ -142,8 +146,12 @@ export default function InformIAGenerarPage() {
   };
 
   const handleGenerate = async () => {
-    if (!selectedModality || !selectedRegion || !selectedTemplate) {
-      toast.error("Selecciona modalidad, región y plantilla");
+    if (!selectedModality || !selectedRegion) {
+      toast.error("Selecciona modalidad y región");
+      return;
+    }
+    if (!isAutoClassify && !selectedTemplate) {
+      toast.error("Selecciona una plantilla");
       return;
     }
     setGenerating(true);
@@ -160,17 +168,22 @@ export default function InformIAGenerarPage() {
       }
       if (hallazgos) studyInfo.hallazgos_clinicos = hallazgos;
 
-      const result = await asistradApi.generate({
+      const request: Record<string, unknown> = {
         modality: selectedModality,
         region: selectedRegion,
-        template_id: selectedTemplate.id,
         clinical_context: [
           clinicalContext,
           analysis?.contexto_texto ? `\n--- Análisis DICOM automático ---\n${analysis.contexto_texto}` : "",
           hallazgos ? `\n--- Hallazgos del radiólogo ---\n${hallazgos}` : "",
         ].filter(Boolean).join("\n"),
         study_info: studyInfo,
-      });
+      };
+      // Only include template_id for legacy pipeline
+      if (!isAutoClassify && selectedTemplate) {
+        request.template_id = selectedTemplate.id;
+      }
+
+      const result = await asistradApi.generate(request as any);
       setPreReport(result);
       setStep("result");
       toast.success("Pre-informe generado");
@@ -433,8 +446,8 @@ export default function InformIAGenerarPage() {
             </div>
           )}
 
-          {/* Template */}
-          {selectedRegion && (
+          {/* Template — hidden for auto-classify combos */}
+          {selectedRegion && !isAutoClassify && (
             <div>
               <label style={{ fontSize: 9.5, color: C.muted, fontWeight: 600, letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
                 <FileText size={10} /> PLANTILLA *
@@ -468,8 +481,27 @@ export default function InformIAGenerarPage() {
             </div>
           )}
 
+          {/* Auto-classification badge */}
+          {selectedRegion && isAutoClassify && (
+            <div style={{
+              padding: "10px 14px", borderRadius: 6,
+              background: "rgba(0,212,255,0.06)", border: "1px solid rgba(0,212,255,0.2)",
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <Zap size={13} style={{ color: C.cyan, flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: C.cyan, letterSpacing: "0.08em" }}>
+                  CLASIFICACIÓN AUTOMÁTICA ACTIVADA
+                </div>
+                <div style={{ fontSize: 9, color: C.sub, marginTop: 2 }}>
+                  El sistema extraerá hallazgos, clasificará automáticamente y seleccionará la plantilla correcta.
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Clinical context */}
-          {selectedTemplate && (
+          {(selectedTemplate || isAutoClassify) && (
             <>
               <div>
                 <label style={{ fontSize: 9.5, color: C.muted, fontWeight: 600, letterSpacing: "0.1em", marginBottom: 6, display: "block" }}>
@@ -539,7 +571,10 @@ export default function InformIAGenerarPage() {
           <Loader2 size={20} style={{ color: C.purple, animation: "spin 1s linear infinite", margin: "0 auto 16px" }} />
           <div style={{ fontSize: 13, fontWeight: 500, color: C.text }}>Generando pre-informe...</div>
           <div style={{ fontSize: 10, color: C.muted, marginTop: 6 }}>
-            Claude está redactando el informe basado en la plantilla y el contexto proporcionado
+            {isAutoClassify
+              ? "Extrayendo hallazgos, clasificando y redactando con plantilla automática"
+              : "Claude está redactando el informe basado en la plantilla y el contexto proporcionado"
+            }
           </div>
         </div>
       )}
@@ -565,6 +600,16 @@ export default function InformIAGenerarPage() {
               <span style={{ fontSize: 9, color: C.muted }}>
                 {preReport.template_used}
               </span>
+              {preReport.metadata?.finding_category && (
+                <span style={{
+                  fontSize: 8, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                  padding: "2px 8px", borderRadius: 3,
+                  background: "rgba(0,212,255,0.1)", border: "1px solid rgba(0,212,255,0.25)",
+                  color: C.cyan,
+                }}>
+                  {preReport.metadata.finding_category}
+                </span>
+              )}
             </div>
 
             <div style={{

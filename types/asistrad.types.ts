@@ -48,7 +48,7 @@ export interface RadReportHistory {
 export interface AsistRadRequest {
   modality: string;
   region: string;
-  template_id: string;
+  template_id?: string;
   clinical_context?: string;
   study_info?: Record<string, unknown>;
 }
@@ -58,9 +58,11 @@ export interface AsistRadResponse {
   template_used: string;
   metadata: {
     history_id: string;
-    template_id: string;
+    template_id?: string;
     modality: string;
     region: string;
+    findings_json?: Record<string, unknown>;
+    finding_category?: string;
   } | null;
 }
 
