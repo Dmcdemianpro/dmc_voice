@@ -183,46 +183,64 @@ async def generate_pre_report(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Genera un pre-informe usando Claude y la plantilla seleccionada."""
-    result = await db.execute(select(RadTemplate).where(RadTemplate.id == body.template_id))
-    template = result.scalar_one_or_none()
-    if not template:
-        raise HTTPException(status_code=404, detail="Plantilla no encontrada")
-    if not template.is_active:
-        raise HTTPException(status_code=400, detail="La plantilla está desactivada")
+    """Genera un pre-informe. Pipeline 3 pasos si no se envía template_id y la
+    modalidad/región tiene schema. Pipeline legacy si se envía template_id."""
+    template = None
+
+    if body.template_id:
+        # Pipeline legacy: cargar plantilla
+        result = await db.execute(select(RadTemplate).where(RadTemplate.id == body.template_id))
+        template = result.scalar_one_or_none()
+        if not template:
+            raise HTTPException(status_code=404, detail="Plantilla no encontrada")
+        if not template.is_active:
+            raise HTTPException(status_code=400, detail="La plantilla está desactivada")
 
     try:
-        pre_report, prompt_sent = await asistrad_service.generate_pre_report(
+        pre_report, prompt_sent, findings_json, finding_category = await asistrad_service.generate_pre_report(
             template=template,
             clinical_context=body.clinical_context,
             study_info=body.study_info,
             db=db,
+            modality=body.modality,
+            region=body.region,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error al generar con Claude: {str(e)}")
 
     # Save history
     history = RadReportHistory(
-        template_id=template.id,
+        template_id=template.id if template else None,
         user_id=current_user.id,
         modality=body.modality,
         region=body.region,
         clinical_context=body.clinical_context,
         prompt_sent=prompt_sent,
         response_received=pre_report,
+        findings_json=findings_json,
+        finding_category=finding_category,
     )
     db.add(history)
     await db.flush()
 
+    metadata = {
+        "history_id": str(history.id),
+        "modality": body.modality,
+        "region": body.region,
+    }
+    if template:
+        metadata["template_id"] = str(template.id)
+    if findings_json:
+        metadata["findings_json"] = findings_json
+    if finding_category:
+        metadata["finding_category"] = finding_category
+
     return AsistRadResponse(
         pre_report_text=pre_report,
-        template_used=template.name,
-        metadata={
-            "history_id": str(history.id),
-            "template_id": str(template.id),
-            "modality": body.modality,
-            "region": body.region,
-        },
+        template_used=template.name if template else f"Auto-clasificación: {finding_category or 'N/A'}",
+        metadata=metadata,
     )
 
 

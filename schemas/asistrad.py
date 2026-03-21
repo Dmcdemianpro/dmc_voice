@@ -54,7 +54,7 @@ class RadTemplateVersionOut(BaseModel):
 
 class RadReportHistoryCreate(BaseModel):
     report_id: Optional[uuid.UUID] = None
-    template_id: uuid.UUID
+    template_id: Optional[uuid.UUID] = None
     modality: str
     region: str
     clinical_context: Optional[str] = None
@@ -65,13 +65,15 @@ class RadReportHistoryCreate(BaseModel):
 class RadReportHistoryOut(BaseModel):
     id: uuid.UUID
     report_id: Optional[uuid.UUID] = None
-    template_id: uuid.UUID
+    template_id: Optional[uuid.UUID] = None
     user_id: uuid.UUID
     modality: str
     region: str
     clinical_context: Optional[str] = None
     prompt_sent: str
     response_received: str
+    findings_json: Optional[dict[str, Any]] = None
+    finding_category: Optional[str] = None
     rating: Optional[int] = None
     feedback: Optional[str] = None
     created_at: datetime
@@ -89,7 +91,7 @@ class RatingUpdate(BaseModel):
 class AsistRadRequest(BaseModel):
     modality: str
     region: str
-    template_id: uuid.UUID
+    template_id: Optional[uuid.UUID] = None
     clinical_context: Optional[str] = None
     study_info: Optional[dict[str, Any]] = None
 
