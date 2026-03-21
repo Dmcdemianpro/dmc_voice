@@ -253,7 +253,8 @@ simple, conciso y directo. Formato exacto (sin encabezados institucionales ni fi
    Frases cortas y descriptivas. Sin repetir la modalidad ni la región.]
 
   Impresión:
-  [1-2 oraciones máximo con el diagnóstico principal. Conciso y directo.]
+  [1 oración breve. Si el estudio es normal: solo indicar que no hay compromiso agudo.
+   Si hay hallazgo patológico: diagnóstico principal + sugerencia al clínico si corresponde.]
 
 REGLAS del texto_informe_final:
 - Primera línea: nombre completo del estudio (ej: "Tomografía computada de muñeca y antebrazo izquierdo.")
@@ -264,6 +265,9 @@ REGLAS del texto_informe_final:
 - NO usar viñetas (•, -, *), solo texto plano línea por línea
 - NO usar subtítulos dentro de Hallazgos (como "Parénquima cerebral:", "Línea media:",
   "Fosa posterior:", "Estructuras óseas:", etc.). Solo prosa directa, un hallazgo por línea.
+- Impresión BREVE: si el estudio es normal, una sola frase descartando compromiso agudo.
+  Solo agregar sugerencias al clínico (correlación clínica, seguimiento, etc.) cuando hay
+  hallazgos sospechosos o patológicos. Nunca recomendar en estudios normales.
 - Tono: prosa médica formal pero concisa, como un radiólogo chileno experimentado
 
 EJEMPLOS DE ESTILO (referencia de tono y formato):
