@@ -612,6 +612,82 @@ export default function InformIAGenerarPage() {
               )}
             </div>
 
+            {/* Pipeline metadata badges */}
+            {preReport.metadata?.pipeline_metadata && (
+              <div style={{
+                padding: "8px 14px", display: "flex", flexWrap: "wrap", gap: 6,
+                borderBottom: "1px solid rgba(16,185,129,0.15)",
+              }}>
+                {/* Fuente principal utilizada */}
+                {preReport.metadata.pipeline_metadata.fuente_principal_utilizada && (
+                  <span style={{
+                    fontSize: 8, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase",
+                    padding: "3px 8px", borderRadius: 3,
+                    background: preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "hallazgos_radiologo"
+                      ? "rgba(16,185,129,0.1)" : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "contexto_clinico"
+                      ? "rgba(245,158,11,0.1)" : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "analisis_dicom"
+                      ? "rgba(0,212,255,0.1)" : "rgba(148,163,184,0.1)",
+                    border: `1px solid ${preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "hallazgos_radiologo"
+                      ? "rgba(16,185,129,0.3)" : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "contexto_clinico"
+                      ? "rgba(245,158,11,0.3)" : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "analisis_dicom"
+                      ? "rgba(0,212,255,0.3)" : "rgba(148,163,184,0.3)"}`,
+                    color: preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "hallazgos_radiologo"
+                      ? C.green : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "contexto_clinico"
+                      ? C.amber : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "analisis_dicom"
+                      ? C.cyan : C.muted,
+                  }}>
+                    {preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "hallazgos_radiologo"
+                      ? "Fuente: Radiólogo" : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "contexto_clinico"
+                      ? "Fuente: Contexto clínico" : preReport.metadata.pipeline_metadata.fuente_principal_utilizada === "analisis_dicom"
+                      ? "Fuente: Análisis DICOM" : `Fuente: ${preReport.metadata.pipeline_metadata.fuente_principal_utilizada}`}
+                  </span>
+                )}
+
+                {/* Conflicto entre fuentes */}
+                {preReport.metadata.pipeline_metadata.conflicto_entre_fuentes &&
+                 preReport.metadata.pipeline_metadata.conflicto_entre_fuentes !== "sin conflicto" && (
+                  <span style={{
+                    fontSize: 8, fontWeight: 600, letterSpacing: "0.08em",
+                    padding: "3px 8px", borderRadius: 3,
+                    background: "rgba(251,146,60,0.1)", border: "1px solid rgba(251,146,60,0.3)",
+                    color: "#fb923c",
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    <AlertTriangle size={9} />
+                    Conflicto: {preReport.metadata.pipeline_metadata.conflicto_entre_fuentes}
+                  </span>
+                )}
+
+                {/* Modo de redacción limitado */}
+                {preReport.metadata.pipeline_metadata.modo_redaccion === "limitado" && (
+                  <span style={{
+                    fontSize: 8, fontWeight: 600, letterSpacing: "0.08em",
+                    padding: "3px 8px", borderRadius: 3,
+                    background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)",
+                    color: C.amber,
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    <AlertTriangle size={9} />
+                    Informe limitado — datos anatómicos insuficientes
+                  </span>
+                )}
+
+                {/* Informe regenerado */}
+                {preReport.metadata.pipeline_metadata.hubo_regeneracion && (
+                  <span style={{
+                    fontSize: 8, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase",
+                    padding: "3px 8px", borderRadius: 3,
+                    background: "rgba(255,71,87,0.1)", border: "1px solid rgba(255,71,87,0.3)",
+                    color: C.red,
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    <AlertTriangle size={9} />
+                    Informe regenerado por inconsistencias
+                  </span>
+                )}
+              </div>
+            )}
+
             <div style={{
               padding: 16, fontSize: 11.5, color: C.text,
               lineHeight: 1.7, whiteSpace: "pre-wrap",
