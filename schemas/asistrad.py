@@ -74,6 +74,7 @@ class RadReportHistoryOut(BaseModel):
     response_received: str
     findings_json: Optional[dict[str, Any]] = None
     finding_category: Optional[str] = None
+    pipeline_metadata: Optional[dict[str, Any]] = None
     rating: Optional[int] = None
     feedback: Optional[str] = None
     created_at: datetime

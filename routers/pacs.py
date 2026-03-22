@@ -6,13 +6,15 @@ from services.pacs_service import pacs_service
 from services.dicom_analysis_service import (
     analizar_dicom, analizar_serie,
     construir_contexto_para_claude, construir_contexto_multiserie,
+    _is_scout_or_localizer,
 )
+from services.json_clinico_service import construir_json_clinico
 from middleware.auth_middleware import get_current_user
 from config import settings
 
 router = APIRouter(prefix="/api/v1/pacs", tags=["PACS"])
 
-MAX_SAMPLE_SLICES = 10
+MAX_SAMPLE_SLICES = 30
 
 
 @router.get("/studies")
@@ -77,6 +79,16 @@ async def analyze_study_from_pacs(
         if not series_to_analyze:
             raise HTTPException(404, "No se encontraron series válidas")
 
+        # Filter SCOUT/Localizer series before downloading
+        series_filtradas = [
+            s for s in series_to_analyze
+            if not _is_scout_or_localizer(s["desc"], s["n_instances"])
+        ]
+        # Fallback: if all are SCOUT, use the one with most slices
+        if not series_filtradas and series_to_analyze:
+            series_filtradas = [max(series_to_analyze, key=lambda x: x["n_instances"])]
+        series_to_analyze = series_filtradas
+
         # 2. Analyze each series
         resultados_series = []
         total_instancias_estudio = 0
@@ -139,6 +151,9 @@ async def analyze_study_from_pacs(
         # 4. Use first series for top-level fields (modalidad, region)
         primer = resultados_series[0]
 
+        # 5. Build structured clinical JSON
+        json_clinico = construir_json_clinico(primer)
+
         return {
             "analisis": {
                 "modalidad": primer["modalidad"],
@@ -151,6 +166,7 @@ async def analyze_study_from_pacs(
                 "series_detalle": resultados_series,
             },
             "contexto_texto": contexto,
+            "json_clinico": json_clinico,
             "modalidad": primer["modalidad"],
             "region": primer["metadata_tecnica"].get("parte_del_cuerpo", ""),
         }

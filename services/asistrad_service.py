@@ -18,6 +18,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from config import settings
 from models.asistrad import RadTemplate, RadReportHistory
+from services.clasificacion_registry import classify_for_modality
+from services.schemas_extraccion import (
+    EXTRACTION_SCHEMAS as _MODULAR_EXTRACTION_SCHEMAS,
+    has_extraction_schema as _modular_has_extraction_schema,
+    get_extraction_schema as _modular_get_extraction_schema,
+)
+from services.plantillas_categoria import (
+    CATEGORY_TEMPLATES as _MODULAR_CATEGORY_TEMPLATES,
+    get_category_template as _modular_get_category_template,
+)
+# Trigger auto-registration of classifiers
+import services.clasificadores  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -169,14 +181,12 @@ GENERIC_EXTRACTION_SCHEMA = """{
 
 def has_extraction_schema(modality: str, region: str) -> bool:
     """¿Esta modalidad/región soporta pipeline 3 pasos?"""
-    return modality in EXTRACTION_SCHEMAS and region in EXTRACTION_SCHEMAS[modality]
+    return _modular_has_extraction_schema(modality, region)
 
 
 def _get_extraction_schema(modality: str, region: str) -> str:
     """Retorna el schema de extracción para la combinación modalidad/región."""
-    if modality in EXTRACTION_SCHEMAS and region in EXTRACTION_SCHEMAS[modality]:
-        return EXTRACTION_SCHEMAS[modality][region]
-    return GENERIC_EXTRACTION_SCHEMA
+    return _modular_get_extraction_schema(modality, region)
 
 
 def _extract_pure_clinical_context(clinical_context: str) -> str:
@@ -228,9 +238,16 @@ async def extract_findings(
         parts.append(dicom_analysis)
         parts.append("")
 
+    # FUENTE COMPLEMENTARIA ESTRUCTURADA — JSON clínico
+    if study_info and study_info.get("json_clinico"):
+        import json as _json
+        parts.append("=== [FUENTE COMPLEMENTARIA ESTRUCTURADA — ANÁLISIS LOCAL] JSON CLÍNICO ===")
+        parts.append(_json.dumps(study_info["json_clinico"], ensure_ascii=False, indent=2))
+        parts.append("")
+
     # Metadatos adicionales del estudio (patient, study_description, etc.)
     if study_info:
-        meta_keys = [k for k in study_info if k not in ("hallazgos_clinicos", "dicom_analysis")]
+        meta_keys = [k for k in study_info if k not in ("hallazgos_clinicos", "dicom_analysis", "json_clinico")]
         if meta_keys:
             parts.append("=== METADATOS DEL ESTUDIO ===")
             for k in meta_keys:
@@ -491,13 +508,7 @@ Impresión:
 
 def get_category_template(modality: str, region: str, category: str) -> str:
     """Paso 2.5: Seleccionar plantilla correcta según categoría."""
-    mod_templates = CATEGORY_TEMPLATES.get(modality, {})
-    reg_templates = mod_templates.get(region, {})
-    template = reg_templates.get(category)
-    if template:
-        return template
-    # Fallback a indeterminado
-    return reg_templates.get("indeterminado", "")
+    return _modular_get_category_template(modality, region, category)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -731,11 +742,15 @@ async def generate_pre_report(
         findings_json = await extract_findings(study_info, clinical_context, mod, reg)
         logger.info("Extracción completada: hallazgo=%s", findings_json.get("hallazgo_principal"))
 
-        # Paso 2: Clasificar
-        category = classify_finding(findings_json)
+        # Paso 2: Clasificar (usa registry modular)
+        category = classify_for_modality(findings_json, mod, reg)
         logger.info("Clasificación: %s", category)
 
+        # Paso 2.5: Determinar modo de redacción
+        redaction_mode = determine_redaction_mode(findings_json)
+
         # Construir metadata de trazabilidad
+        json_clinico = study_info.get("json_clinico") if study_info else None
         pipeline_metadata = {
             "fuente_principal_utilizada": findings_json.get("fuente_principal_utilizada", "no especificada"),
             "conflicto_entre_fuentes": findings_json.get("conflicto_entre_fuentes", "sin conflicto"),
@@ -743,10 +758,8 @@ async def generate_pre_report(
             "modo_redaccion": redaction_mode,
             "hubo_regeneracion": False,
             "violaciones_detectadas": [],
+            "json_clinico": json_clinico,
         }
-
-        # Paso 2.5: Determinar modo de redacción
-        redaction_mode = determine_redaction_mode(findings_json)
         logger.info("Modo de redacción: %s", redaction_mode)
 
         # Paso 3: Seleccionar plantilla por categoría y redactar

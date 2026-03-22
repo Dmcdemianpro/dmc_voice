@@ -1,0 +1,29 @@
+{
+  "case_id": "tc_cerebro_001",
+  "modalidad": "TC",
+  "region": "Cerebro",
+  "referencia": {
+    "informe_texto": "Tomografía computada de encéfalo sin contraste.\n\nHallazgos:\nHematoma intraparenquimatoso lenticular izquierdo de aproximadamente 3 x 2 cm, con densidad compatible con sangrado agudo.\nDiscreto efecto de masa local con borramiento parcial del asta frontal del ventrículo lateral izquierdo.\nNo se identifica extensión intraventricular.\nLínea media con desviación de 3 mm hacia la derecha.\nFosa posterior sin lesiones.\nCalota sin fracturas.\n\nImpresión:\nHematoma agudo lenticular izquierdo con efecto de masa local y desviación de línea media de 3 mm. Se sugiere control evolutivo.",
+    "categoria": "hemorragico",
+    "hallazgo_principal": "hematoma intraparenquimatoso",
+    "localizacion": "lenticular",
+    "lateralidad": "izquierdo",
+    "negativos_importantes": ["sin extension intraventricular", "fosa posterior sin lesiones", "calota sin fracturas"],
+    "hallazgos_secundarios": ["desviacion linea media 3mm", "efecto de masa local"]
+  },
+  "pipeline_output": {
+    "informe_texto": "Tomografía computada de encéfalo sin contraste.\n\nHallazgos:\nHematoma intraparenquimatoso en región lenticular izquierda de aproximadamente 3 x 2 cm, con densidad compatible con sangrado agudo.\nEfecto de masa local con borramiento del asta frontal del ventrículo lateral izquierdo.\nSin extensión intraventricular.\nDesviación de línea media de 3 mm a la derecha.\nFosa posterior sin alteraciones.\nCalota íntegra.\n\nImpresión:\nHematoma agudo lenticular izquierdo con efecto de masa y desviación de línea media.",
+    "findings_json": {
+      "hallazgo_principal": "hemorragico",
+      "descripcion_hallazgo": "Hematoma intraparenquimatoso lenticular izquierdo",
+      "localizacion": "lenticular",
+      "lateralidad": "izquierdo",
+      "densidad": "hiperdenso",
+      "efecto_masa": "presente",
+      "desviacion_linea_media": "3 mm a la derecha",
+      "extension_intraventricular": "ausente",
+      "confianza_global": "alta"
+    },
+    "categoria": "hemorragico"
+  }
+}

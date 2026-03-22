@@ -197,7 +197,7 @@ async def generate_pre_report(
             raise HTTPException(status_code=400, detail="La plantilla está desactivada")
 
     try:
-        pre_report, prompt_sent, findings_json, finding_category = await asistrad_service.generate_pre_report(
+        pre_report, prompt_sent, findings_json, finding_category, pipeline_metadata = await asistrad_service.generate_pre_report(
             template=template,
             clinical_context=body.clinical_context,
             study_info=body.study_info,
@@ -221,6 +221,7 @@ async def generate_pre_report(
         response_received=pre_report,
         findings_json=findings_json,
         finding_category=finding_category,
+        pipeline_metadata=pipeline_metadata,
     )
     db.add(history)
     await db.flush()
@@ -236,6 +237,8 @@ async def generate_pre_report(
         metadata["findings_json"] = findings_json
     if finding_category:
         metadata["finding_category"] = finding_category
+    if pipeline_metadata:
+        metadata["pipeline_metadata"] = pipeline_metadata
 
     return AsistRadResponse(
         pre_report_text=pre_report,

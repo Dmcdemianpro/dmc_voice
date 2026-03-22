@@ -7,7 +7,11 @@ Solo el resultado textual se envía a Claude API para redactar el informe.
 import pydicom
 import numpy as np
 import io
+import logging
 from typing import Optional
+from services.anatomia_tc_cerebro import analizar_anatomia_tc_cerebro
+
+logger = logging.getLogger(__name__)
 
 
 # Rangos de Unidades Hounsfield por banda de atenuación (TC)
@@ -260,6 +264,31 @@ def _analizar_rx(ds, pixel_array: np.ndarray) -> dict:
     }
 
 
+def _es_tc_cerebro(metadata_tecnica: dict) -> bool:
+    """Heurística: ¿es TC de cerebro?
+
+    Busca indicios en BodyPartExamined, StudyDescription y SeriesDescription.
+    """
+    patterns = ("head", "brain", "cerebr", "encef", "craneal", "craneo", "cabeza")
+    fields = [
+        str(metadata_tecnica.get("parte_del_cuerpo", "")).lower(),
+        str(metadata_tecnica.get("descripcion_estudio", "")).lower(),
+        str(metadata_tecnica.get("descripcion_serie", "")).lower(),
+    ]
+    return any(p in field for field in fields for p in patterns)
+
+
+def _extraer_pixel_spacing(ds) -> float:
+    """Extrae el pixel spacing del dataset DICOM, default 0.5mm."""
+    ps = getattr(ds, "PixelSpacing", None)
+    if ps is not None:
+        try:
+            return float(ps[0])
+        except (TypeError, IndexError):
+            pass
+    return 0.5
+
+
 def analizar_serie(dicom_bytes_list: list[bytes], n_total_instancias: int = 0) -> dict:
     """
     Analiza múltiples cortes DICOM de una serie.
@@ -312,6 +341,17 @@ def analizar_serie(dicom_bytes_list: list[bytes], n_total_instancias: int = 0) -
             resultado["analisis_cuantitativo"] = _analizar_rx(ds0, pa0)
     except Exception as e:
         resultado["advertencias_tecnicas"].append(f"Error en análisis multi-corte: {e}")
+
+    # Análisis anatómico local para TC cerebro
+    if modalidad in ("CT", "TC") and _es_tc_cerebro(resultado["metadata_tecnica"]):
+        try:
+            pixel_spacing = _extraer_pixel_spacing(primer_ds)
+            resultado["analisis_anatomico"] = analizar_anatomia_tc_cerebro(
+                pixel_arrays, pixel_spacing
+            )
+        except Exception as e:
+            logger.warning("Error en análisis anatómico: %s", e)
+            resultado["advertencias_tecnicas"].append(f"Error en análisis anatómico: {e}")
 
     return resultado
 
@@ -441,6 +481,28 @@ def _serie_display(descripcion_serie: str) -> str:
     return descripcion_serie.strip()
 
 
+# ── Detección SCOUT/Localizer y prioridad cerebro ─────────────────────────
+
+_SCOUT_PATTERNS = ("scout", "localizer", "topogram", "surview", "overview", "pilot")
+_BRAIN_PRIORITY_PATTERNS = ("brain", "head", "encef", "cerebr", "craneal", "ax ", "axial")
+
+
+def _is_scout_or_localizer(descripcion_serie: str, n_cortes: int = 0) -> bool:
+    """Detecta series SCOUT/Localizer por descripción o por tener muy pocos cortes."""
+    desc = descripcion_serie.strip().lower()
+    if any(pat in desc for pat in _SCOUT_PATTERNS):
+        return True
+    if 0 < n_cortes <= 2:
+        return True
+    return False
+
+
+def _is_brain_priority_series(descripcion_serie: str) -> bool:
+    """Detecta series de cerebro/cabeza que deberían tener prioridad."""
+    desc = descripcion_serie.strip().lower()
+    return any(pat in desc for pat in _BRAIN_PRIORITY_PATTERNS)
+
+
 # ── Evaluación de confianza y prioridad por serie ─────────────────────────
 
 # Display labels for distribution keys (neutral, user-facing)
@@ -462,6 +524,17 @@ def _evaluar_confianza_serie(serie: dict) -> dict:
     cuant = serie.get("analisis_cuantitativo")
     n_analizados = serie.get("n_cortes_analizados", 0)
     n_total = serie.get("n_cortes_total", 0)
+    desc_serie = str(meta.get("descripcion_serie", "")).strip()
+
+    # ── SCOUT → retorno inmediato ──
+    if _is_scout_or_localizer(desc_serie, n_total):
+        return {
+            "confianza_anatomica": "baja",
+            "serie_util_reporte": "no",
+            "contenido_extracraneal": "bajo",
+            "_score": 0,
+            "es_scout": True,
+        }
 
     # ── Confianza anatómica ──
     body_part = str(meta.get("parte_del_cuerpo", "")).strip()
@@ -480,6 +553,10 @@ def _evaluar_confianza_serie(serie: dict) -> dict:
         score += 1
     if grosor is not None and grosor <= 5.0:
         score += 1
+
+    # ── Brain priority bonus ──
+    if _is_brain_priority_series(desc_serie):
+        score += 2
 
     if score >= 4:
         confianza_anat = "alta"
@@ -509,54 +586,100 @@ def _evaluar_confianza_serie(serie: dict) -> dict:
         "serie_util_reporte": util_reporte,
         "contenido_extracraneal": contenido_extra,
         "_score": score,
+        "es_scout": False,
     }
 
 
 def _priorizar_series(resultados_series: list[dict]) -> list[dict]:
-    """Ordena series por prioridad para evaluación (mayor score primero)."""
+    """Ordena series por prioridad para evaluación (mayor score primero).
+    Series SCOUT/Localizer reciben priority=0 (quedan al final)."""
     evaluaciones = []
     for serie in resultados_series:
         ev = _evaluar_confianza_serie(serie)
         serie["_evaluacion"] = ev
-        n_total = serie.get("n_cortes_total", 0)
-        # Priority: confidence score + number of slices
-        priority = ev["_score"] * 100 + n_total
+        if ev.get("es_scout"):
+            priority = 0
+        else:
+            n_total = serie.get("n_cortes_total", 0)
+            priority = ev["_score"] * 100 + n_total
         evaluaciones.append((priority, serie))
     evaluaciones.sort(key=lambda x: x[0], reverse=True)
     return [s for _, s in evaluaciones]
 
 
 def _construir_limitaciones(series_priorizadas: list[dict], total_instancias: int, total_analizadas: int) -> list[str]:
-    """Construye la sección de limitaciones del análisis."""
+    """Construye la sección de limitaciones del análisis.
+    No expone cantidades exactas, scores ni métricas internas."""
     limitaciones = []
 
     # Región no especificada
-    meta = series_priorizadas[0].get("metadata_tecnica", {})
+    # Filtrar SCOUT de la lista para evaluar limitaciones
+    series_no_scout = [s for s in series_priorizadas if not s.get("_evaluacion", {}).get("es_scout")]
+    serie_ref = series_no_scout[0] if series_no_scout else series_priorizadas[0]
+    meta = serie_ref.get("metadata_tecnica", {})
     body_part = str(meta.get("parte_del_cuerpo", "")).strip()
     if not body_part or body_part == "No especificado":
         limitaciones.append("Región anatómica no especificada en metadatos DICOM.")
 
-    # Muestreo parcial
+    # Muestreo representativo (sin exponer cantidades exactas)
     if total_analizadas < total_instancias:
-        pct = round(total_analizadas / total_instancias * 100, 1) if total_instancias > 0 else 0
-        limitaciones.append(
-            f"Muestreo parcial del estudio: {total_analizadas} de {total_instancias} imágenes analizadas ({pct}%)."
-        )
+        limitaciones.append("Evaluación basada en muestreo representativo del estudio.")
 
-    # Series con baja confianza
-    for i, serie in enumerate(series_priorizadas):
+    # Series no-SCOUT con baja confianza
+    for i, serie in enumerate(series_no_scout):
         ev = serie.get("_evaluacion", {})
         if ev.get("confianza_anatomica") == "baja":
-            raw_desc = serie.get("metadata_tecnica", {}).get("descripcion_serie", "")
-            desc = _serie_display(raw_desc)
             if i > 0:
-                limitaciones.append(f"Serie secundaria con baja confianza anatómica.")
-            else:
-                limitaciones.append(f"Serie \"{desc}\" con baja confianza anatómica.")
+                limitaciones.append("Serie secundaria con baja confianza anatómica.")
 
     limitaciones.append("La caracterización anatómica definitiva requiere revisión directa de las imágenes.")
 
     return limitaciones
+
+
+def _formatear_seccion_anatomica(analisis: dict) -> list[str]:
+    """Formatea la sección de análisis anatómico local para el contexto de Claude."""
+    anat = analisis.get("analisis_anatomico")
+    if not anat:
+        return []
+
+    lineas = [
+        "",
+        "Análisis anatómico local:",
+    ]
+
+    sv = anat.get("sistema_ventricular", {})
+    lineas.append(f"- Sistema ventricular: {sv.get('estado', 'no evaluable')}")
+
+    lm = anat.get("linea_media", {})
+    estado_lm = lm.get("estado", "no evaluable")
+    if estado_lm in ("desviada_derecha", "desviada_izquierda"):
+        lineas.append(f"- Línea media: {estado_lm} ({lm.get('desviacion_mm', 0)} mm)")
+    else:
+        lineas.append(f"- Línea media: {estado_lm}")
+
+    calota = anat.get("calota", {})
+    lineas.append(f"- Calota: {calota.get('estado', 'no evaluable')}")
+
+    fp = anat.get("fosa_posterior", {})
+    lineas.append(f"- Fosa posterior: {fp.get('descripcion', 'no evaluable')}")
+
+    paren = anat.get("parenquima_supratentorial", {})
+    lineas.append(f"- Parénquima supratentorial: {paren.get('descripcion', 'no evaluable')}")
+
+    asimetrias = anat.get("asimetrias", [])
+    if asimetrias:
+        for asim in asimetrias:
+            lineas.append(f"- Asimetría: {asim.get('region', '?')} {asim.get('lateralidad', '?')} ({asim.get('magnitud', '?')})")
+
+    focos = anat.get("focos_atenuacion", [])
+    if focos:
+        for foco in focos:
+            lineas.append(f"- Foco: {foco.get('tipo', '?')} {foco.get('lateralidad', '?')} {foco.get('region', '?')}")
+
+    lineas.append(f"- Confianza anatómica: {anat.get('confianza_anatomica', 'baja')}")
+
+    return lineas
 
 
 def construir_contexto_multiserie(
@@ -573,8 +696,14 @@ def construir_contexto_multiserie(
 
     # Priorizar series
     series_priorizadas = _priorizar_series(resultados_series)
-    meta = series_priorizadas[0]["metadata_tecnica"]
-    modalidad = series_priorizadas[0]["modalidad"]
+
+    # Filtrar SCOUT del contexto (no se muestran)
+    series_visibles = [s for s in series_priorizadas if not s.get("_evaluacion", {}).get("es_scout")]
+    if not series_visibles:
+        series_visibles = series_priorizadas  # fallback
+
+    meta = series_visibles[0]["metadata_tecnica"]
+    modalidad = series_visibles[0]["modalidad"]
 
     lineas = [
         "ANÁLISIS DICOM",
@@ -586,24 +715,21 @@ def construir_contexto_multiserie(
         f"Institución: {meta['institucion']}",
         "",
         "Resumen general:",
-        f"- Total de series detectadas: {len(series_priorizadas)}",
+        f"- Series útiles para evaluación: {len(series_visibles)}",
         f"- Total de imágenes del estudio: {total_instancias}",
-        f"- Imágenes analizadas por muestreo: {total_analizadas}",
     ]
 
-    # Render each series with priority labels
-    for i, serie in enumerate(series_priorizadas):
+    # Render each visible (non-SCOUT) series with priority labels
+    for i, serie in enumerate(series_visibles):
         s_meta = serie["metadata_tecnica"]
         s_cuant = serie.get("analisis_cuantitativo")
         ev = serie.get("_evaluacion", {})
-        n_anal = serie.get("n_cortes_analizados", "?")
-        n_total = serie.get("n_cortes_total", "?")
         desc = _serie_display(s_meta.get("descripcion_serie", ""))
 
         if i == 0:
             label = "Serie prioritaria para evaluación"
         else:
-            label = f"Serie secundaria" if len(series_priorizadas) == 2 else f"Serie {i+1} (no prioritaria)"
+            label = f"Serie secundaria" if len(series_visibles) == 2 else f"Serie {i+1} (no prioritaria)"
             if ev.get("confianza_anatomica") == "baja" or ev.get("serie_util_reporte") == "no":
                 label += " — no prioritaria para reporte"
 
@@ -611,9 +737,7 @@ def construir_contexto_multiserie(
             "",
             f"{label}:",
             f"- Serie: {desc}",
-            f"- Cortes analizados: {n_anal} de {n_total}",
             f"- Grosor de corte: {s_meta.get('grosor_corte_mm', '?')} mm",
-            f"- Espaciado de píxeles: {s_meta.get('espaciado_pixeles', '?')}",
             f"- Confianza anatómica: {ev.get('confianza_anatomica', '?')}",
             f"- Serie útil para reporte: {ev.get('serie_util_reporte', '?')}",
             f"- Contenido extracraneal: {ev.get('contenido_extracraneal', '?')}",
@@ -623,7 +747,7 @@ def construir_contexto_multiserie(
         if contraste and contraste != "No especificado":
             lineas.append(f"- Contraste: {contraste} ({s_meta.get('ruta_contraste', '')})")
 
-        # Distribution (TC)
+        # Distribution (TC) — sin HU media por banda
         if modalidad in ("CT", "TC") and s_cuant:
             dist_label = "Distribución de atenuación de la serie prioritaria" if i == 0 else "Distribución de atenuación de la serie secundaria"
             lineas += ["", f"{dist_label}:"]
@@ -634,11 +758,7 @@ def construir_contexto_multiserie(
                     if pct < _MIN_PCT_DISPLAY:
                         continue
                     label_name = _DIST_LABELS.get(key, key)
-                    hu_m = dist[key].get("hu_media")
-                    line = f"- {label_name}: {pct}%"
-                    if hu_m is not None:
-                        line += f" (HU media: {hu_m})"
-                    lineas.append(line)
+                    lineas.append(f"- {label_name}: {pct}%")
 
         # RM
         elif modalidad in ("MR", "RM") and s_cuant:
@@ -671,26 +791,25 @@ def construir_contexto_multiserie(
             for adv in advs:
                 lineas.append(f"- Advertencia: {adv}")
 
-    # Limitaciones
+    # Limitaciones (usa series_priorizadas completa para evaluar correctamente)
     limitaciones = _construir_limitaciones(series_priorizadas, total_instancias, total_analizadas)
     lineas += ["", "Limitaciones:"]
     for lim in limitaciones:
         lineas.append(f"- {lim}")
 
-    # Resumen técnico priorizado
-    serie_prio = series_priorizadas[0]
+    # Resumen técnico priorizado (usa serie visible, no SCOUT)
+    serie_prio = series_visibles[0]
     desc_prio = _serie_display(serie_prio.get("metadata_tecnica", {}).get("descripcion_serie", ""))
     lineas += [
         "",
         "Resumen técnico priorizado:",
-        f"- Serie prioritaria para evaluación: {desc_prio}.",
+        f"- Serie prioritaria: {desc_prio}.",
     ]
 
     # Collect observations from priority series
     cuant_prio = serie_prio.get("analisis_cuantitativo")
     if cuant_prio and cuant_prio.get("observaciones"):
         obs_list = cuant_prio["observaciones"]
-        # Extract band names for concise summary
         bandas_resumen = []
         for obs in obs_list:
             if "100–400 HU" in obs:
@@ -706,6 +825,9 @@ def construir_contexto_multiserie(
         lineas.append("- No se identifican focos relevantes en bandas de atenuación.")
 
     lineas.append("- Hallazgos cuantitativos sin caracterización anatómica definitiva en esta etapa.")
+
+    # Análisis anatómico local (de la serie prioritaria)
+    lineas += _formatear_seccion_anatomica(serie_prio)
 
     return "\n".join(lineas)
 
@@ -736,15 +858,12 @@ def construir_contexto_para_claude(analisis: dict) -> str:
         f"Institución: {meta['institucion']}",
         "",
         "Resumen general:",
-        "- Total de series detectadas: 1",
+        "- Series útiles para evaluación: 1",
         f"- Total de imágenes del estudio: {n_total or meta.get('n_cortes', '?')}",
-        f"- Imágenes analizadas por muestreo: {n_analizados or '?'}",
         "",
         "Serie prioritaria para evaluación:",
         f"- Serie: {_serie_display(meta.get('descripcion_serie', ''))}",
-        f"- Cortes analizados: {n_analizados or '?'} de {n_total or '?'}",
         f"- Grosor de corte: {meta['grosor_corte_mm']} mm",
-        f"- Espaciado de píxeles: {meta['espaciado_pixeles']}",
         f"- Confianza anatómica: {ev['confianza_anatomica']}",
         f"- Serie útil para reporte: {ev['serie_util_reporte']}",
         f"- Contenido extracraneal: {ev['contenido_extracraneal']}",
@@ -754,7 +873,7 @@ def construir_contexto_para_claude(analisis: dict) -> str:
     if contraste and contraste != "No especificado":
         lineas.append(f"- Contraste: {contraste} ({meta.get('ruta_contraste', '')})")
 
-    # Distribution (TC)
+    # Distribution (TC) — sin HU media por banda
     if modalidad in ("CT", "TC") and cuant:
         lineas += ["", "Distribución de atenuación de la serie prioritaria:"]
         dist = cuant["distribucion_atenuacion"]
@@ -764,11 +883,7 @@ def construir_contexto_para_claude(analisis: dict) -> str:
                 if pct < _MIN_PCT_DISPLAY:
                     continue
                 label_name = _DIST_LABELS.get(key, key)
-                hu_m = dist[key].get("hu_media")
-                line = f"- {label_name}: {pct}%"
-                if hu_m is not None:
-                    line += f" (HU media: {hu_m})"
-                lineas.append(line)
+                lineas.append(f"- {label_name}: {pct}%")
 
     elif modalidad in ("MR", "RM") and cuant:
         lineas += [
@@ -817,7 +932,7 @@ def construir_contexto_para_claude(analisis: dict) -> str:
     lineas += [
         "",
         "Resumen técnico priorizado:",
-        f"- Serie prioritaria para evaluación: {desc_serie}.",
+        f"- Serie prioritaria: {desc_serie}.",
     ]
 
     if cuant and cuant.get("observaciones"):
@@ -841,5 +956,8 @@ def construir_contexto_para_claude(analisis: dict) -> str:
     if analisis.get("advertencias_tecnicas"):
         for adv in analisis["advertencias_tecnicas"]:
             lineas.append(f"- Advertencia: {adv}")
+
+    # Análisis anatómico local (si disponible)
+    lineas += _formatear_seccion_anatomica(analisis)
 
     return "\n".join(lineas)

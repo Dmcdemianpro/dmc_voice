@@ -65,6 +65,7 @@ class RadReportHistory(Base):
     response_received: Mapped[str] = mapped_column(Text, nullable=False)
     findings_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     finding_category: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    pipeline_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
     rating: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     feedback: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
